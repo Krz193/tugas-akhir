@@ -39,7 +39,10 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                // Include the full user with their role and division so the
+                // frontend can make role-aware decisions (e.g. show "Create
+                // Project" button only to project managers).
+                'user' => $request->user()?->load('role', 'division'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
