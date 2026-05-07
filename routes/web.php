@@ -35,6 +35,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('projects/{project}/tasks', [TaskController::class, 'index'])->name('projects.tasks.index');
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('projects.tasks.store');
+    Route::get('my-tasks', [TaskController::class, 'myTasks'])->name('tasks.my');
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
     Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::patch('tasks/{task}/status', [TaskController::class, 'updateStatus'])->name('tasks.status.update');
