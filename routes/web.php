@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DivisionLeadController;
+use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ProjectManagerTransferController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskController;
@@ -38,6 +39,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::patch('tasks/{task}/status', [TaskController::class, 'updateStatus'])->name('tasks.status.update');
     Route::delete('tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
+
+    Route::get('projects/{project}/messages', [MessageController::class, 'indexProject'])->name('projects.messages.index');
+    Route::post('projects/{project}/messages', [MessageController::class, 'storeProject'])->name('projects.messages.store');
+    Route::get('tasks/{task}/messages', [MessageController::class, 'indexTask'])->name('tasks.messages.index');
+    Route::post('tasks/{task}/messages', [MessageController::class, 'storeTask'])->name('tasks.messages.store');
+    Route::patch('messages/{message}', [MessageController::class, 'update'])->name('messages.update');
+    Route::delete('messages/{message}', [MessageController::class, 'destroy'])->name('messages.destroy');
 });
 
 require __DIR__.'/settings.php';
