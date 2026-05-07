@@ -4,6 +4,7 @@ use App\Http\Controllers\DivisionLeadController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ProjectManagerTransferController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ReportingController;
 use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -47,6 +48,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('tasks/{task}/messages', [MessageController::class, 'storeTask'])->name('tasks.messages.store');
     Route::patch('messages/{message}', [MessageController::class, 'update'])->name('messages.update');
     Route::delete('messages/{message}', [MessageController::class, 'destroy'])->name('messages.destroy');
+
+    Route::get('reports/timeline', [ReportingController::class, 'timeline'])->name('reports.timeline');
+    Route::get('reports/calendar', [ReportingController::class, 'calendar'])->name('reports.calendar');
+    Route::get('reports/performance', [ReportingController::class, 'performance'])->name('reports.performance');
 });
 
 require __DIR__.'/settings.php';
