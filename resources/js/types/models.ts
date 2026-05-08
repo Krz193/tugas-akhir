@@ -47,14 +47,20 @@ export type AppUser = {
 // "members" is only present when the backend eager-loads them (e.g. show page).
 // -----------------------------------------------------------------------------
 
+export type ProjectStatus = 'planning' | 'active' | 'completed' | 'on_hold';
+
 export type Project = {
     id: number;
     name: string;
     description: string | null;
-    created_by: number;       // user id of the PM who created it
-    creator?: AppUser;        // eager-loaded creator object (optional)
-    members?: AppUser[];      // eager-loaded member list (optional)
-    tasks_count?: number;     // optional aggregate from backend
+    status: ProjectStatus;
+    start_date: string | null; // ISO date string e.g. "2026-01-10"
+    due_date: string | null; // ISO date string
+    created_by: number; // user id of the PM who created it
+    creator?: AppUser; // eager-loaded creator object (optional)
+    members?: AppUser[]; // eager-loaded member list (optional)
+    tasks_count?: number; // withCount() aggregate
+    users_count?: number; // withCount() aggregate
     created_at: string;
     updated_at: string;
 };
@@ -73,12 +79,12 @@ export type Task = {
     title: string;
     description: string | null;
     status: TaskStatus;
-    assigned_to: number | null;   // user id, nullable if unassigned
+    assigned_to: number | null; // user id, nullable if unassigned
     created_by: number;
-    due_date: string | null;      // ISO date string e.g. "2025-08-01"
-    project?: Project;            // eager-loaded (optional)
-    assignee?: AppUser;           // eager-loaded (optional)
-    creator?: AppUser;            // eager-loaded (optional)
+    due_date: string | null; // ISO date string e.g. "2025-08-01"
+    project?: Project; // eager-loaded (optional)
+    assignee?: AppUser; // eager-loaded (optional)
+    creator?: AppUser; // eager-loaded (optional)
     created_at: string;
     updated_at: string;
 };
@@ -93,10 +99,10 @@ export type Message = {
     id: number;
     body: string;
     author_id: number;
-    author?: AppUser;             // eager-loaded (optional)
-    parent_id: number | null;     // null = top-level message; number = reply
-    replies?: Message[];          // nested replies (only on top-level messages)
-    messageable_type: string;     // "App\\Models\\Project" or "App\\Models\\Task"
+    author?: AppUser; // eager-loaded (optional)
+    parent_id: number | null; // null = top-level message; number = reply
+    replies?: Message[]; // nested replies (only on top-level messages)
+    messageable_type: string; // "App\\Models\\Project" or "App\\Models\\Task"
     messageable_id: number;
     created_at: string;
     updated_at: string;
@@ -128,7 +134,7 @@ export type TimelineTask = Task; // same shape, just filtered/sorted differently
 
 // Calendar: tasks grouped by their due date
 export type CalendarDay = {
-    date: string;     // "YYYY-MM-DD"
+    date: string; // "YYYY-MM-DD"
     tasks: Task[];
 };
 
