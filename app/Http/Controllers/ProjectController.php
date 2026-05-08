@@ -9,13 +9,16 @@ use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class ProjectController extends Controller
 {
-    /** List projects accessible by current user. */
-    public function index(Request $request): JsonResponse
+    /** List projects accessible by current user — rendered as an Inertia page. */
+    public function index(Request $request): Response
     {
         Gate::authorize('viewAny', Project::class);
 
@@ -33,19 +36,24 @@ class ProjectController extends Controller
             ->latest('id')
             ->get();
 
-        return response()->json(['data' => $projects]);
+        // 'projects/index' maps to resources/js/pages/projects/index.tsx
+        return Inertia::render('projects/index', [
+            'projects' => $projects,
+        ]);
     }
 
-    /** Store a new project. */
-    public function store(StoreProjectRequest $request): JsonResponse
+    /** Store a new project and redirect back to the list. */
+    public function store(StoreProjectRequest $request): RedirectResponse
     {
-        $project = Project::query()->create([
+        Project::query()->create([
             ...$request->validated(),
             'created_by' => $request->user()->id,
             'status' => $request->validated('status') ?? 'planning',
         ]);
 
-        return response()->json(['data' => $project], 201);
+        // Inertia follows this redirect and re-renders the index page
+        // with the updated project list automatically.
+        return redirect()->route('projects.index');
     }
 
     /** Show a project with members and task summary. */
@@ -68,14 +76,14 @@ class ProjectController extends Controller
         return response()->json(['data' => $project->fresh()]);
     }
 
-    /** Delete a project. */
-    public function destroy(Project $project): JsonResponse
+    /** Delete a project and redirect back to the list. */
+    public function destroy(Project $project): RedirectResponse
     {
         Gate::authorize('delete', $project);
 
         $project->delete();
 
-        return response()->json([], 204);
+        return redirect()->route('projects.index');
     }
 
     /** Add member to project. */
