@@ -1,15 +1,5 @@
-// =============================================================================
-// pages/projects/index.tsx — Projects list page
-//
-// What this page does:
-//   1. Shows all projects the current user has access to (as cards)
-//   2. PM gets a "Create Project" button that opens a dialog
-//   3. Each card links to the project detail page (not built yet)
-//
-// Data flow:
-//   Laravel (ProjectController::index) → Inertia → this page (via `projects` prop)
-//   Create form → POST /projects → redirect back → page re-renders with new data
-// =============================================================================
+// pages/projects/index.tsx — Shows all projects the user has access to.
+// PM users also get a "Create Project" button that opens a dialog.
 
 import { Head, Link, useForm } from '@inertiajs/react';
 import { CalendarDays, Plus, Users } from 'lucide-react';
@@ -39,48 +29,23 @@ import { useAuthUser } from '@/hooks/use-auth-user';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, Project } from '@/types';
 
-// -----------------------------------------------------------------------------
-// Types
-// The backend passes projects with task and user counts added via withCount().
-// -----------------------------------------------------------------------------
-
-type ProjectWithCounts = Project & {
-    tasks_count: number;
-    users_count: number;
-};
-
+// Props coming from ProjectController::index() via Inertia
 type Props = {
-    projects: ProjectWithCounts[];
+    projects: Project[];
 };
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-/**
- * Maps a project status string to the correct Badge variant.
- * Badge variants available: default (blue), secondary (gray),
- * destructive (red), outline (bordered).
- */
+// Maps a status value to a badge color
 function getStatusVariant(status: Project['status']) {
-    switch (status) {
-        case 'active':
-            return 'default' as const;
-        case 'planning':
-            return 'secondary' as const;
-        case 'completed':
-            return 'outline' as const;
-        case 'on_hold':
-            return 'destructive' as const;
-    }
+    if (status === 'active') return 'default' as const;
+    if (status === 'planning') return 'secondary' as const;
+    if (status === 'completed') return 'outline' as const;
+    if (status === 'on_hold') return 'destructive' as const;
+    return 'secondary' as const;
 }
 
-/**
- * Converts a status slug into a human-readable label.
- * e.g. "on_hold" → "On Hold"
- */
+// Maps a status value to a readable label
 function getStatusLabel(status: Project['status']) {
-    const labels: Record<Project['status'], string> = {
+    const labels = {
         planning: 'Planning',
         active: 'Active',
         completed: 'Completed',
@@ -89,11 +54,8 @@ function getStatusLabel(status: Project['status']) {
     return labels[status];
 }
 
-/**
- * Formats an ISO date string (e.g. "2026-06-30") into a readable form
- * (e.g. "Jun 30, 2026"). Returns null if no date is provided.
- */
-function formatDate(dateStr: string | null): string | null {
+// Formats '2026-06-30' into 'Jun 30, 2026', returns null if no date
+function formatDate(dateStr: string | null) {
     if (!dateStr) return null;
     return new Date(dateStr).toLocaleDateString('en-US', {
         month: 'short',
@@ -102,33 +64,27 @@ function formatDate(dateStr: string | null): string | null {
     });
 }
 
-// -----------------------------------------------------------------------------
-// ProjectCard — displays a single project as a card
-// -----------------------------------------------------------------------------
-
-function ProjectCard({ project }: { project: ProjectWithCounts }) {
-    const formattedDueDate = formatDate(project.due_date);
+// Single project card
+function ProjectCard({ project }: { project: Project }) {
+    const dueDate = formatDate(project.due_date);
 
     return (
         <Card className="flex flex-col justify-between">
             <CardHeader className="gap-3">
-                {/* Status badge + due date row */}
                 <div className="flex items-center justify-between">
                     <Badge variant={getStatusVariant(project.status)}>
                         {getStatusLabel(project.status)}
                     </Badge>
-                    {formattedDueDate && (
+                    {dueDate && (
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                             <CalendarDays className="h-3 w-3" />
-                            {formattedDueDate}
+                            {dueDate}
                         </span>
                     )}
                 </div>
 
-                {/* Project name */}
                 <CardTitle className="text-base">{project.name}</CardTitle>
 
-                {/* Description — clamped to 2 lines */}
                 {project.description && (
                     <p className="line-clamp-2 text-sm text-muted-foreground">
                         {project.description}
@@ -137,24 +93,19 @@ function ProjectCard({ project }: { project: ProjectWithCounts }) {
             </CardHeader>
 
             <CardContent>
-                {/* Member and task counts */}
                 <div className="flex gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        {project.users_count} member
-                        {project.users_count !== 1 ? 's' : ''}
+                        {project.users_count ?? 0} members
                     </span>
                     <span className="flex items-center gap-1">
-                        {/* simple circle indicator */}
                         <span className="h-4 w-4 rounded-full border-2 border-current" />
-                        {project.tasks_count} task
-                        {project.tasks_count !== 1 ? 's' : ''}
+                        {project.tasks_count ?? 0} tasks
                     </span>
                 </div>
             </CardContent>
 
             <CardFooter>
-                {/* Link to the project detail page (show page — built next) */}
                 <Button variant="outline" size="sm" asChild className="w-full">
                     <Link href={`/projects/${project.id}`}>View Project</Link>
                 </Button>
@@ -163,21 +114,14 @@ function ProjectCard({ project }: { project: ProjectWithCounts }) {
     );
 }
 
-// -----------------------------------------------------------------------------
-// CreateProjectDialog — modal form for PM to create a new project
-// -----------------------------------------------------------------------------
-
-type CreateProjectDialogProps = {
+// Dialog form to create a new project (PM only)
+function CreateProjectDialog({
+    open,
+    onOpenChange,
+}: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-};
-
-function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
-    // useForm from Inertia handles:
-    //   - field values (data)
-    //   - server-side validation errors (errors)
-    //   - loading state while submitting (processing)
-    //   - resetting fields (reset)
+}) {
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         description: '',
@@ -187,9 +131,6 @@ function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
 
     function handleSubmit(e: FormEvent) {
         e.preventDefault();
-
-        // POST /projects → backend creates the project → redirects to /projects
-        // Inertia follows the redirect and the page re-renders with new data.
         post('/projects', {
             onSuccess: () => {
                 reset();
@@ -206,7 +147,6 @@ function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    {/* Project Name */}
                     <div className="flex flex-col gap-1.5">
                         <Label htmlFor="name">
                             Project Name{' '}
@@ -222,13 +162,8 @@ function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
                         <InputError message={errors.name} />
                     </div>
 
-                    {/* Description */}
                     <div className="flex flex-col gap-1.5">
                         <Label htmlFor="description">Description</Label>
-                        {/*
-                         * No <Textarea> component exists yet, so we style a plain
-                         * <textarea> to match the Input component's appearance.
-                         */}
                         <textarea
                             id="description"
                             rows={3}
@@ -243,7 +178,6 @@ function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
                         <InputError message={errors.description} />
                     </div>
 
-                    {/* Date fields side by side */}
                     <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1.5">
                             <Label htmlFor="start_date">Start Date</Label>
@@ -258,7 +192,6 @@ function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
                             />
                             <InputError message={errors.start_date} />
                         </div>
-
                         <div className="flex flex-col gap-1.5">
                             <Label htmlFor="due_date">Due Date</Label>
                             <Input
@@ -283,7 +216,6 @@ function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
                         >
                             Cancel
                         </Button>
-
                         <Button type="submit" disabled={processing}>
                             {processing && <Spinner />}
                             Create Project
@@ -295,10 +227,7 @@ function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
     );
 }
 
-// -----------------------------------------------------------------------------
-// EmptyState — shown when the user has no projects yet
-// -----------------------------------------------------------------------------
-
+// Empty state shown when there are no projects yet
 function EmptyState({
     canCreate,
     onCreate,
@@ -329,15 +258,12 @@ function EmptyState({
     );
 }
 
-// -----------------------------------------------------------------------------
-// ProjectsIndex — main page component (default export)
-// Inertia renders this when the user visits GET /projects
-// -----------------------------------------------------------------------------
-
+// Breadcrumb shown at the top of the page
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Projects', href: '/projects' },
 ];
 
+// Main page component — Inertia renders this when visiting GET /projects
 export default function ProjectsIndex({ projects }: Props) {
     const { isProjectManager } = useAuthUser();
     const [createOpen, setCreateOpen] = useState(false);
@@ -349,11 +275,9 @@ export default function ProjectsIndex({ projects }: Props) {
             <Head title="Projects" />
 
             <div className="flex flex-col gap-6 p-4">
-                {/* Page header */}
+                {/* Header row */}
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-semibold">Projects</h1>
-
-                    {/* Only PMs see the create button */}
                     {canCreate && (
                         <Button onClick={() => setCreateOpen(true)}>
                             <Plus className="h-4 w-4" />
@@ -362,7 +286,7 @@ export default function ProjectsIndex({ projects }: Props) {
                     )}
                 </div>
 
-                {/* Content: either the card grid or the empty state */}
+                {/* Project cards or empty state */}
                 {projects.length === 0 ? (
                     <EmptyState
                         canCreate={canCreate}
@@ -377,7 +301,6 @@ export default function ProjectsIndex({ projects }: Props) {
                 )}
             </div>
 
-            {/* Create project dialog — only mounted when PM opens it */}
             <CreateProjectDialog
                 open={createOpen}
                 onOpenChange={setCreateOpen}
