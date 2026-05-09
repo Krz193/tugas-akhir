@@ -56,15 +56,28 @@ class ProjectController extends Controller
         return redirect()->route('projects.index');
     }
 
-    /** Show a project with members and task summary. */
-    public function show(Project $project): JsonResponse
+    /** Show a project detail page with its tasks and members. */
+    public function show(Project $project): Response
     {
         Gate::authorize('view', $project);
 
-        $project->load(['creator:id,name,email', 'users:id,name,email']);
-        $project->loadCount(['tasks', 'users']);
+        $project->load([
+            'creator',
+            'users.role',
+            'tasks' => fn ($q) => $q->with('assignee:id,name')->orderBy('position')->orderBy('id'),
+        ]);
 
-        return response()->json(['data' => $project]);
+        // Combine project creator + members into one list for the assignee dropdown.
+        // Both are valid assignees according to StoreTaskRequest validation.
+        $assignees = collect([$project->creator])
+            ->merge($project->users)
+            ->unique('id')
+            ->values();
+
+        return Inertia::render('projects/show', [
+            'project'   => $project,
+            'assignees' => $assignees,
+        ]);
     }
 
     /** Update project data. */

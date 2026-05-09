@@ -8,6 +8,7 @@ use App\Http\Requests\Task\UpdateTaskStatusRequest;
 use App\Models\Project;
 use App\Models\Task;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
@@ -59,10 +60,10 @@ class TaskController extends Controller
         return response()->json(['data' => $tasks]);
     }
 
-    /** Create task under project. */
-    public function store(StoreTaskRequest $request, Project $project): JsonResponse
+    /** Create task under project and redirect back to the project show page. */
+    public function store(StoreTaskRequest $request, Project $project): RedirectResponse
     {
-        $task = Task::query()->create([
+        Task::query()->create([
             ...$request->validated(),
             'project_id' => $project->id,
             'created_by' => $request->user()->id,
@@ -71,7 +72,7 @@ class TaskController extends Controller
             'position' => $request->validated('position') ?? 0,
         ]);
 
-        return response()->json(['data' => $task], 201);
+        return redirect()->back();
     }
 
     /** Show single task. */
@@ -93,8 +94,8 @@ class TaskController extends Controller
         return response()->json(['data' => $task->fresh()]);
     }
 
-    /** Update task status only. */
-    public function updateStatus(UpdateTaskStatusRequest $request, Task $task): JsonResponse
+    /** Update task status and redirect back to wherever the request came from. */
+    public function updateStatus(UpdateTaskStatusRequest $request, Task $task): RedirectResponse
     {
         $status = $request->validated('status');
 
@@ -103,16 +104,16 @@ class TaskController extends Controller
             'completed_at' => $status === 'done' ? now() : null,
         ])->save();
 
-        return response()->json(['data' => $task->fresh()]);
+        return redirect()->back();
     }
 
-    /** Delete task. */
-    public function destroy(Task $task): JsonResponse
+    /** Delete task and redirect back to the project show page. */
+    public function destroy(Task $task): RedirectResponse
     {
         Gate::authorize('delete', $task);
 
         $task->delete();
 
-        return response()->json([], 204);
+        return redirect()->back();
     }
 }
