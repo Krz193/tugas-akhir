@@ -8,6 +8,7 @@ use App\Http\Requests\Project\UpdateProjectRequest;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\User;
+use App\Models\Message;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,24 +37,32 @@ class ProjectController extends Controller
             ->latest('id')
             ->get();
 
+        // Load available users for member selection in create project dialog
+        // (scoped to same division as current user for consistency)
+        $availableUsers = User::query()
+            // ->where('division_id', $user->division_id)
+            ->with(['role', 'division'])
+            ->orderBy('name')
+            ->get();
+
         // 'projects/index' maps to resources/js/pages/projects/index.tsx
         return Inertia::render('projects/index', [
             'projects' => $projects,
+            'availableUsers' => $availableUsers,
         ]);
     }
 
     /** Store a new project and redirect back to the list. */
-    public function store(StoreProjectRequest $request): RedirectResponse
+    public function store(StoreProjectRequest $request): JsonResponse
     {
-        Project::query()->create([
+        $project = Project::query()->create([
             ...$request->validated(),
             'created_by' => $request->user()->id,
             'status' => $request->validated('status') ?? 'planning',
         ]);
 
-        // Inertia follows this redirect and re-renders the index page
-        // with the updated project list automatically.
-        return redirect()->route('projects.index');
+        // Return JSON with created project so frontend can add members before redirecting
+        return response()->json(['data' => $project], 201);
     }
 
     /** Show a project detail page with its tasks and members. */
@@ -64,8 +73,30 @@ class ProjectController extends Controller
         $project->load([
             'creator',
             'users.role',
-            'tasks' => fn ($q) => $q->with('assignee:id,name')->orderBy('position')->orderBy('id'),
+            'tasks' => fn ($q) => $q
+                ->with('assignee:id,name')
+                ->withCount('messages')
+                ->withMax('messages', 'id')
+                ->orderBy('position')
+                ->orderBy('id'),
         ]);
+
+        $project->tasks->transform(function ($task) {
+            $task->latest_message_id = $task->messages_max_id;
+
+            unset($task->messages_max_id);
+
+            return $task;
+        });
+
+        $projectMessages = Message::query()
+            ->with(['author:id,name,email'])
+            ->where('messageable_type', Project::class)
+            ->where('messageable_id', $project->id)
+            ->orderBy('created_at')
+            ->get();
+
+        $projectThread = $this->buildThreadTree($projectMessages);
 
         // Combine project creator + members into one list for the assignee dropdown.
         // Both are valid assignees according to StoreTaskRequest validation.
@@ -77,7 +108,35 @@ class ProjectController extends Controller
         return Inertia::render('projects/show', [
             'project'   => $project,
             'assignees' => $assignees,
+            'projectThread' => $projectThread,
         ]);
+    }
+
+    /** Build nested thread nodes from flat message collection. */
+    protected function buildThreadTree($messages): array
+    {
+        $nodes = [];
+
+        foreach ($messages as $message) {
+            $node = $message->toArray();
+            $node['replies'] = [];
+
+            $nodes[$message->id] = $node;
+        }
+
+        $roots = [];
+
+        foreach ($messages as $message) {
+            if ($message->parent_id !== null && isset($nodes[$message->parent_id])) {
+                $nodes[$message->parent_id]['replies'][] = &$nodes[$message->id];
+
+                continue;
+            }
+
+            $roots[] = &$nodes[$message->id];
+        }
+
+        return $roots;
     }
 
     /** Update project data. */

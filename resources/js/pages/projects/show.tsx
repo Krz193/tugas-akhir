@@ -6,6 +6,7 @@ import { CalendarDays, Plus, Trash2 } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
+import { ThreadSection } from '@/components/thread/thread-section';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +27,7 @@ import type {
     Project,
     Task,
     TaskStatus,
+    Message
 } from '@/types';
 
 // Props sent by ProjectController::show()
@@ -36,6 +38,7 @@ type Props = {
         tasks: Task[];
     };
     assignees: AppUser[]; // creator + members combined, for the task form
+    projectThread: Message[];
 };
 
 // Formats 'YYYY-MM-DD' → 'Jun 30, 2026'. Returns '—' if null.
@@ -281,7 +284,7 @@ function CreateTaskDialog({
 }
 
 // ------- ProjectShow (main page) -------
-export default function ProjectShow({ project, assignees }: Props) {
+export default function ProjectShow({ project, assignees, projectThread }: Props) {
     const { isProjectManager } = useAuthUser();
     const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
@@ -330,6 +333,18 @@ export default function ProjectShow({ project, assignees }: Props) {
                             {project.description}
                         </p>
                     )}
+                </div>
+
+                <div className="space-y-4 rounded-xl border p-6">
+                    <div>
+                        <h2 className="text-lg font-semibold">Discussion</h2>
+
+                        <p className="text-sm text-muted-foreground">
+                            Project-wide discussion thread.
+                        </p>
+                    </div>
+
+                    <ThreadSection messages={projectThread} messageableType="project" messageableId={project.id} />
                 </div>
 
                 {/* ── Tasks ── */}

@@ -62,6 +62,8 @@ export type Task = {
     creator?: AppUser; // only present when backend eager-loads it
     created_at: string;
     updated_at: string;
+    messages_count?: number;
+    latest_message_id?: number | null;
 };
 
 // Message (threaded discussion)
@@ -69,12 +71,17 @@ export type Task = {
 export type Message = {
     id: number;
     body: string;
-    author_id: number;
-    author?: AppUser;
-    parent_id: number | null; // null = top-level, number = reply to another message
-    replies?: Message[]; // only on top-level messages
-    messageable_type: string; // 'App\\Models\\Project' or 'App\\Models\\Task'
+    user_id: number;
+    author: {
+        id: number;
+        name: string;
+        email: string;
+    };
+    parent_id: number | null;
+    replies: Message[];
+    messageable_type: string;
     messageable_id: number;
+    edited_at?: string | null;
     created_at: string;
     updated_at: string;
 };

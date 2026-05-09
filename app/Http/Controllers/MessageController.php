@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Message\StoreMessageRequest;
 use App\Http\Requests\Message\UpdateMessageRequest;
 use App\Models\Message;
 use App\Models\Project;
 use App\Models\Task;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 
@@ -44,7 +46,7 @@ class MessageController extends Controller
     }
 
     /** Create a message in project thread. */
-    public function storeProject(StoreMessageRequest $request, Project $project): JsonResponse
+    public function storeProject(StoreMessageRequest $request, Project $project): RedirectResponse
     {
         $message = Message::query()->create([
             'user_id' => $request->user()->id,
@@ -54,7 +56,8 @@ class MessageController extends Controller
             'body' => $request->validated('body'),
         ]);
 
-        return response()->json(['data' => $message->load('author:id,name,email')], 201);
+        // return response()->json(['data' => $message->load('author:id,name,email')], 201);
+        return redirect()->back();
     }
 
     /** Create a message in task thread. */
@@ -72,24 +75,26 @@ class MessageController extends Controller
     }
 
     /** Update message content. */
-    public function update(UpdateMessageRequest $request, Message $message): JsonResponse
+    public function update(UpdateMessageRequest $request, Message $message): RedirectResponse
     {
         $message->forceFill([
             'body' => $request->validated('body'),
             'edited_at' => now(),
         ])->save();
 
-        return response()->json(['data' => $message->fresh()->load('author:id,name,email')]);
+        // return response()->json(['data' => $message->fresh()->load('author:id,name,email')]);
+        return redirect()->back();
     }
 
     /** Delete message (author or PM). */
-    public function destroy(Message $message): JsonResponse
+    public function destroy(Message $message): RedirectResponse
     {
         Gate::authorize('delete', $message);
 
         $message->delete();
 
-        return response()->json([], 204);
+        // return response()->json([], 204);
+        return redirect()->back();
     }
 
     /** Build nested thread nodes from flat message collection. */
