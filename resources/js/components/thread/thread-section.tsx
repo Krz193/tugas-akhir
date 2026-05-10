@@ -7,12 +7,14 @@ type ThreadSectionProps = {
     messages: Message[];
     messageableType: 'project' | 'task';
     messageableId: number;
+    onMessageSent?: () => void;
 };
 
 export function ThreadSection({
     messages,
     messageableType,
     messageableId,
+    onMessageSent
 }: ThreadSectionProps) {
     const [replyingTo, setReplyingTo] = useState<number | null>(null);
     const [replyBody, setReplyBody] = useState('');
@@ -68,6 +70,7 @@ export function ThreadSection({
                             setEditingBody={setEditingBody}
                             errors={errors}
                             processing={processing}
+                            onMessageSent={onMessageSent}
                         />
                     ))}
                 </div>
@@ -84,7 +87,10 @@ export function ThreadSection({
 
                     post(url, {
                         preserveScroll: true,
-                        onSuccess: () => reset(),
+                        onSuccess: () => {
+                            reset();
+                            onMessageSent?.();
+                        },
                     });
                 }}
                 className="space-y-3"

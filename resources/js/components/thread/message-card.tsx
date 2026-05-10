@@ -16,6 +16,7 @@ type MessageCardProps = {
     setEditingBody: (value: string) => void;
     errors: Record<string, string>;
     processing: boolean;
+    onMessageSent?: () => void;
 };
 
 export function MessageCard({
@@ -32,6 +33,7 @@ export function MessageCard({
     setEditingBody,
     errors,
     processing,
+    onMessageSent
 }: MessageCardProps) {
     return (
         <div key={message.id} className="rounded-lg border p-4">
@@ -71,6 +73,9 @@ export function MessageCard({
 
                                 router.delete(`/messages/${message.id}`, {
                                     preserveScroll: true,
+                                    onSuccess: () => {
+                                        onMessageSent?.();
+                                    }
                                 });
                             }}
                             className="text-destructive transition-opacity hover:opacity-70"
@@ -96,6 +101,7 @@ export function MessageCard({
                                 onSuccess: () => {
                                     setEditingMessageId(null);
                                     setEditingBody('');
+                                    onMessageSent?.();
                                 },
                             },
                         );
@@ -164,6 +170,7 @@ export function MessageCard({
                                 onSuccess: () => {
                                     setReplyBody('');
                                     setReplyingTo(null);
+                                    onMessageSent?.();
                                 },
                             }
                         );
