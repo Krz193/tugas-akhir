@@ -1,32 +1,23 @@
 // pages/projects/show.tsx — Project detail page.
 // Shows the project info, its tasks, and its members.
 
-import { Head, router, useForm } from '@inertiajs/react';
-import { CalendarDays, Plus, Trash2 } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { Head } from '@inertiajs/react';
+import { CalendarDays, Plus } from 'lucide-react';
 import { useState } from 'react';
-import InputError from '@/components/input-error';
+import { CreateTaskDialog } from '@/components/tasks/create-task-dialog';
+import { TaskRow } from '@/components/tasks/task-row';
+import { TaskThreadSheet } from '@/components/tasks/task-thread-sheet';
 import { ThreadSection } from '@/components/thread/thread-section';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
 import { useAuthUser } from '@/hooks/use-auth-user';
+import { useTaskThread } from '@/hooks/use-task-thread';
 import AppLayout from '@/layouts/app-layout';
 import type {
     AppUser,
     BreadcrumbItem,
     Project,
     Task,
-    TaskStatus,
     Message
 } from '@/types';
 
@@ -51,242 +42,20 @@ function formatDate(date: string | null) {
     });
 }
 
-// Returns a Tailwind class string to color-code the status select
-function statusSelectClass(status: TaskStatus) {
-    if (status === 'done') return 'border-green-300 bg-green-50 text-green-800';
-    if (status === 'in_progress')
-        return 'border-blue-300 bg-blue-50 text-blue-800';
-    return 'border-gray-300 bg-gray-50 text-gray-700';
-}
-
-// ------- TaskRow -------
-// One row in the task list. Shows status select, title, assignee, due date.
-// PM can also delete any task.
-function TaskRow({ task, canDelete }: { task: Task; canDelete: boolean }) {
-    const { user, isProjectManager } = useAuthUser();
-
-    // Only the assignee or PM can change the status
-    const canUpdateStatus = isProjectManager() || task.assigned_to === user.id;
-
-    function handleStatusChange(newStatus: string) {
-        router.patch(`/tasks/${task.id}/status`, { status: newStatus });
-    }
-
-    function handleDelete() {
-        if (window.confirm(`Delete "${task.title}"?`)) {
-            router.delete(`/tasks/${task.id}`);
-        }
-    }
-
-    return (
-        <div className="flex items-center gap-3 border-b py-3 last:border-0">
-            {/* Status select — colored by current status */}
-            <select
-                value={task.status}
-                onChange={(e) => handleStatusChange(e.target.value)}
-                disabled={!canUpdateStatus}
-                className={`rounded-md border px-2 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${statusSelectClass(task.status)}`}
-            >
-                <option value="todo">Todo</option>
-                <option value="in_progress">In Progress</option>
-                <option value="done">Done</option>
-            </select>
-
-            {/* Task title */}
-            <span className="flex-1 text-sm font-medium">{task.title}</span>
-
-            {/* Assignee */}
-            <span className="hidden w-32 truncate text-right text-xs text-muted-foreground sm:block">
-                {task.assignee?.name ?? '—'}
-            </span>
-
-            {/* Due date */}
-            <span className="hidden w-24 text-right text-xs text-muted-foreground sm:block">
-                {task.due_date ? formatDate(task.due_date) : '—'}
-            </span>
-
-            {/* Delete button — PM only */}
-            {canDelete && (
-                <button
-                    onClick={handleDelete}
-                    className="text-muted-foreground hover:text-destructive"
-                    title="Delete task"
-                >
-                    <Trash2 className="h-4 w-4" />
-                </button>
-            )}
-        </div>
-    );
-}
-
-// ------- CreateTaskDialog -------
-// Modal form for PM to add a new task to the project.
-function CreateTaskDialog({
-    projectId,
-    assignees,
-    open,
-    onOpenChange,
-}: {
-    projectId: number;
-    assignees: AppUser[];
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-}) {
-    const { data, setData, post, processing, errors, reset } = useForm({
-        title: '',
-        description: '',
-        assigned_to: '',
-        priority: 'medium',
-        start_date: '',
-        due_date: '',
-    });
-
-    function handleSubmit(e: FormEvent) {
-        e.preventDefault();
-        post(`/projects/${projectId}/tasks`, {
-            onSuccess: () => {
-                reset();
-                onOpenChange(false);
-            },
-        });
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Add Task</DialogTitle>
-                </DialogHeader>
-
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    {/* Title */}
-                    <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="title">
-                            Title <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                            id="title"
-                            value={data.title}
-                            onChange={(e) => setData('title', e.target.value)}
-                            placeholder="e.g. Design landing page"
-                            disabled={processing}
-                        />
-                        <InputError message={errors.title} />
-                    </div>
-
-                    {/* Description */}
-                    <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="task-description">Description</Label>
-                        <textarea
-                            id="task-description"
-                            rows={2}
-                            value={data.description}
-                            onChange={(e) =>
-                                setData('description', e.target.value)
-                            }
-                            placeholder="What needs to be done?"
-                            disabled={processing}
-                            className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                        />
-                        <InputError message={errors.description} />
-                    </div>
-
-                    {/* Assign to + Priority side by side */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="assigned_to">Assign To</Label>
-                            <select
-                                id="assigned_to"
-                                value={data.assigned_to}
-                                onChange={(e) =>
-                                    setData('assigned_to', e.target.value)
-                                }
-                                disabled={processing}
-                                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="">Unassigned</option>
-                                {assignees.map((u) => (
-                                    <option key={u.id} value={u.id}>
-                                        {u.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <InputError message={errors.assigned_to} />
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="priority">Priority</Label>
-                            <select
-                                id="priority"
-                                value={data.priority}
-                                onChange={(e) =>
-                                    setData('priority', e.target.value)
-                                }
-                                disabled={processing}
-                                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                            </select>
-                            <InputError message={errors.priority} />
-                        </div>
-                    </div>
-
-                    {/* Dates side by side */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="task-start">Start Date</Label>
-                            <Input
-                                id="task-start"
-                                type="date"
-                                value={data.start_date}
-                                onChange={(e) =>
-                                    setData('start_date', e.target.value)
-                                }
-                                disabled={processing}
-                            />
-                            <InputError message={errors.start_date} />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="task-due">Due Date</Label>
-                            <Input
-                                id="task-due"
-                                type="date"
-                                value={data.due_date}
-                                onChange={(e) =>
-                                    setData('due_date', e.target.value)
-                                }
-                                disabled={processing}
-                            />
-                            <InputError message={errors.due_date} />
-                        </div>
-                    </div>
-
-                    <DialogFooter className="mt-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => onOpenChange(false)}
-                            disabled={processing}
-                        >
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={processing}>
-                            {processing && <Spinner />}
-                            Add Task
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
 // ------- ProjectShow (main page) -------
-export default function ProjectShow({ project, assignees, projectThread }: Props) {
+export default function ProjectShow({ project, assignees, projectThread, }: Props) {
     const { isProjectManager } = useAuthUser();
     const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+
+    const {
+        selectedTask,
+        taskMessages,
+        taskSheetOpen,
+        loadingTaskMessages,
+        setTaskSheetOpen,
+        fetchTaskMessages,
+        openTaskThread,
+    } = useTaskThread();
 
     const isPm = isProjectManager();
 
@@ -335,6 +104,7 @@ export default function ProjectShow({ project, assignees, projectThread }: Props
                     )}
                 </div>
 
+                {/* Project level discussion/sheet */}
                 <div className="space-y-4 rounded-xl border p-6">
                     <div>
                         <h2 className="text-lg font-semibold">Discussion</h2>
@@ -387,12 +157,13 @@ export default function ProjectShow({ project, assignees, projectThread }: Props
                                 {isPm && <span className="w-4" />}
                             </div>
 
-                            <div className="px-3">
+                            <div className="">
                                 {project.tasks.map((task) => (
                                     <TaskRow
                                         key={task.id}
                                         task={task}
                                         canDelete={isPm}
+                                        onClick={() => openTaskThread(task)}
                                     />
                                 ))}
                             </div>
@@ -450,6 +221,20 @@ export default function ProjectShow({ project, assignees, projectThread }: Props
                 assignees={assignees}
                 open={taskDialogOpen}
                 onOpenChange={setTaskDialogOpen}
+            />
+
+            {/* Task level discussion dialog/sheet */}
+            <TaskThreadSheet
+                task={selectedTask}
+                messages={taskMessages}
+                open={taskSheetOpen}
+                loading={loadingTaskMessages}
+                onOpenChange={setTaskSheetOpen}
+                onMessageSent={() => {
+                    if (selectedTask) {
+                        fetchTaskMessages(selectedTask.id);
+                    }
+                }}
             />
         </AppLayout>
     );

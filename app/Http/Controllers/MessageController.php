@@ -61,7 +61,7 @@ class MessageController extends Controller
     }
 
     /** Create a message in task thread. */
-    public function storeTask(StoreMessageRequest $request, Task $task): JsonResponse
+    public function storeTask(StoreMessageRequest $request, Task $task): RedirectResponse
     {
         $message = Message::query()->create([
             'user_id' => $request->user()->id,
@@ -71,7 +71,8 @@ class MessageController extends Controller
             'body' => $request->validated('body'),
         ]);
 
-        return response()->json(['data' => $message->load('author:id,name,email')], 201);
+        // return response()->json(['data' => $message->load('author:id,name,email')], 201);
+        return redirect()->back();
     }
 
     /** Update message content. */
