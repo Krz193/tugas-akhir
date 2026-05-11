@@ -12,11 +12,12 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
 
 class TaskController extends Controller
 {
     /** List tasks assigned to current user with optional filters. */
-    public function myTasks(Request $request): JsonResponse
+    public function myTasks(Request $request)
     {
         $validated = Validator::make($request->query(), [
             'status' => ['nullable', 'in:todo,in_progress,done'],
@@ -43,7 +44,10 @@ class TaskController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        return response()->json($tasks);
+        // return redirect()->back()->with('tasks', $tasks);
+        return Inertia::render('tasks/my-tasks', [
+            'tasks' => $tasks,
+        ]);
     }
 
     /** List tasks for a project accessible by current user. */
