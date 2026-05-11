@@ -1,6 +1,9 @@
 import { Head } from '@inertiajs/react';
-import { CalendarDays } from 'lucide-react';
+import { useState } from 'react';
+import { TaskRow } from '@/components/tasks/task-row';
+import { TaskThreadSheet } from '@/components/tasks/task-thread-sheet';
 import AppLayout from '@/layouts/app-layout';
+import type { Message } from '@/types';
 
 import type {
     BreadcrumbItem,
@@ -10,6 +13,14 @@ import type {
 
 type Props = {
     tasks: PaginatedResponse<Task>;
+    filters: {
+        status: string | null;
+        project_id: number | null;
+    };
+    projects: {
+        id: number;
+        name: string;
+    }[];
 };
 
 function formatDate(date: string | null) {
@@ -23,12 +34,57 @@ function formatDate(date: string | null) {
 }
 
 export default function MyTasksPage({ tasks }: Props) {
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [taskMessages, setTaskMessages] = useState<Message[]>([]);
+    const [taskSheetOpen, setTaskSheetOpen] = useState(false);
+    const [loadingTaskMessages, setLoadingTaskMessages] = useState(false);
+
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'My Tasks',
             href: '/my-tasks',
         },
     ];
+
+    const groupedTasks = tasks.data.reduce(
+        (groups, task) => {
+            const projectName = task.project?.name ?? 'Unknown Project';
+
+            if (!groups[projectName]) {
+                groups[projectName] = [];
+            }
+
+            groups[projectName].push(task);
+
+            return groups;
+        },
+        {} as Record<string, Task[]>,
+    );
+
+    const fetchTaskMessages = async (taskId: number) => {
+        setLoadingTaskMessages(true);
+
+        try {
+            const response = await fetch(`/tasks/${taskId}/messages`, {
+                headers: {
+                    Accept: 'application/json',
+                },
+            });
+
+            const data = await response.json();
+
+            setTaskMessages(data.data);
+        } finally {
+            setLoadingTaskMessages(false);
+        }
+    };
+
+    const openTaskThread = async (task: Task) => {
+        setSelectedTask(task);
+        setTaskSheetOpen(true);
+
+        await fetchTaskMessages(task.id);
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -71,43 +127,47 @@ export default function MyTasksPage({ tasks }: Props) {
                             </span>
                         </div>
 
-                        <div>
-                            {tasks.data.map((task) => (
+                        <div className="space-y-6">
+                            {Object.entries(groupedTasks).map(([projectName, projectTasks]) => (
                                 <div
-                                    key={task.id}
-                                    className="flex items-center gap-3 border-b px-4 py-4 last:border-0"
+                                    key={projectName}
+                                    className="space-y-3"
                                 >
-                                    <span className="w-28 text-xs font-medium capitalize">
-                                        {task.status.replace('_', ' ')}
-                                    </span>
-
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium">
-                                            {task.title}
-                                        </p>
-
-                                        {task.description && (
-                                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                                                {task.description}
-                                            </p>
-                                        )}
+                                    <div className="border-b pb-2">
+                                        <h2 className="font-semibold">
+                                            {projectName}
+                                        </h2>
                                     </div>
 
-                                    <span className="hidden w-40 truncate text-right text-sm text-muted-foreground sm:block">
-                                        {task.project?.name ?? '—'}
-                                    </span>
-
-                                    <span className="hidden w-28 items-center justify-end gap-1 text-right text-xs text-muted-foreground sm:flex">
-                                        <CalendarDays className="h-3.5 w-3.5" />
-
-                                        {formatDate(task.due_date)}
-                                    </span>
+                                    <div className="rounded-lg border">
+                                        {projectTasks.map((task) => (
+                                            <TaskRow
+                                                key={task.id}
+                                                task={task}
+                                                canDelete={false}
+                                                onClick={() => openTaskThread(task)}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </div>
                 )}
             </div>
+
+            <TaskThreadSheet
+                task={selectedTask}
+                messages={taskMessages}
+                open={taskSheetOpen}
+                loading={loadingTaskMessages}
+                onOpenChange={setTaskSheetOpen}
+                onMessageSent={() => {
+                    if (selectedTask) {
+                        fetchTaskMessages(selectedTask.id);
+                    }
+                }}
+            />
         </AppLayout>
     );
 }

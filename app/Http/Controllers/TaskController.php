@@ -44,9 +44,22 @@ class TaskController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
+        $projects = Project::query()
+            ->select('id', 'name')
+            ->whereHas('tasks', function ($query) use ($request) {
+                $query->where('assigned_to', $request->user()->id);
+            })
+            ->orderBy('name')
+            ->get();
+
         // return redirect()->back()->with('tasks', $tasks);
         return Inertia::render('tasks/my-tasks', [
             'tasks' => $tasks,
+            'projects' => $projects,
+            'filters' => [
+                'status' => $validated['status'] ?? null,
+                'project_id' => $validated['project_id'] ?? null,
+            ],
         ]);
     }
 
