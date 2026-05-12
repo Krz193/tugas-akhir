@@ -46,7 +46,7 @@ export type Project = {
 };
 
 // Task
-export type TaskStatus = 'todo' | 'in_progress' | 'done';
+export type TaskStatus = 'todo' | 'in_progress' | 'pending_review' | 'done';
 
 export type Task = {
     id: number;

@@ -13,25 +13,7 @@ import type {
 
 type Props = {
     tasks: PaginatedResponse<Task>;
-    filters: {
-        status: string | null;
-        project_id: number | null;
-    };
-    projects: {
-        id: number;
-        name: string;
-    }[];
 };
-
-function formatDate(date: string | null) {
-    if (!date) return '—';
-
-    return new Date(date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-    });
-}
 
 export default function MyTasksPage({ tasks }: Props) {
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -108,50 +90,31 @@ export default function MyTasksPage({ tasks }: Props) {
                         </p>
                     </div>
                 ) : (
-                    <div className="rounded-xl border">
-                        <div className="hidden items-center gap-3 border-b bg-muted/30 px-4 py-3 text-xs font-medium text-muted-foreground sm:flex">
-                            <span className="w-28">
-                                Status
-                            </span>
+                    <div className="space-y-6">
+                        {Object.entries(groupedTasks).map(([projectName, tasks]) => (
+                            <div key={projectName} className="space-y-3">
+                                <div className="flex items-center justify-between border-b pb-2">
+                                    <h2 className="text-lg font-semibold">
+                                        {projectName}
+                                    </h2>
 
-                            <span className="flex-1">
-                                Task
-                            </span>
-
-                            <span className="w-40 text-right">
-                                Project
-                            </span>
-
-                            <span className="w-28 text-right">
-                                Due Date
-                            </span>
-                        </div>
-
-                        <div className="space-y-6">
-                            {Object.entries(groupedTasks).map(([projectName, projectTasks]) => (
-                                <div
-                                    key={projectName}
-                                    className="space-y-3"
-                                >
-                                    <div className="border-b pb-2">
-                                        <h2 className="font-semibold">
-                                            {projectName}
-                                        </h2>
-                                    </div>
-
-                                    <div className="rounded-lg border">
-                                        {projectTasks.map((task) => (
-                                            <TaskRow
-                                                key={task.id}
-                                                task={task}
-                                                canDelete={false}
-                                                onClick={() => openTaskThread(task)}
-                                            />
-                                        ))}
-                                    </div>
+                                    <span className="text-sm text-muted-foreground">
+                                        {tasks.length} tasks
+                                    </span>
                                 </div>
-                            ))}
-                        </div>
+
+                                <div className="rounded-lg border">
+                                    {tasks.map((task) => (
+                                        <TaskRow
+                                            key={task.id}
+                                            task={task}
+                                            canDelete={false}
+                                            onClick={() => openTaskThread(task)}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>

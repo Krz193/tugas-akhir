@@ -20,7 +20,7 @@ class TaskController extends Controller
     public function myTasks(Request $request)
     {
         $validated = Validator::make($request->query(), [
-            'status' => ['nullable', 'in:todo,in_progress,done'],
+            'status' => ['nullable', 'in:todo,in_progress,pending_review,done'],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ])->validate();
@@ -44,22 +44,9 @@ class TaskController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $projects = Project::query()
-            ->select('id', 'name')
-            ->whereHas('tasks', function ($query) use ($request) {
-                $query->where('assigned_to', $request->user()->id);
-            })
-            ->orderBy('name')
-            ->get();
-
         // return redirect()->back()->with('tasks', $tasks);
         return Inertia::render('tasks/my-tasks', [
             'tasks' => $tasks,
-            'projects' => $projects,
-            'filters' => [
-                'status' => $validated['status'] ?? null,
-                'project_id' => $validated['project_id'] ?? null,
-            ],
         ]);
     }
 
