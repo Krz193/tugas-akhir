@@ -54,9 +54,12 @@ export type Task = {
     title: string;
     description: string | null;
     status: TaskStatus;
+    priority?: 'low' | 'medium' | 'high';
     assigned_to: number | null;
     created_by: number;
+    start_date: string | null;
     due_date: string | null;
+    completed_at?: string | null;
     project?: Project; // only present when backend eager-loads it
     assignee?: AppUser; // only present when backend eager-loads it
     creator?: AppUser; // only present when backend eager-loads it
@@ -108,6 +111,7 @@ export type PerformanceMetrics = {
     total_tasks: number;
     todo_tasks: number;
     in_progress_tasks: number;
+    pending_review_tasks: number;
     done_tasks: number;
     overdue_tasks: number;
     completion_rate: number; // 0–100

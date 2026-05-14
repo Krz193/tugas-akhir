@@ -2,22 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Project;
 use App\Models\Task;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class ReportingController extends Controller
 {
     /** Timeline contract: task list across accessible projects with date range filters. */
-    public function timeline(Request $request): JsonResponse
+    public function timeline(Request $request): Response
     {
         $validated = Validator::make($request->query(), [
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-            'status' => ['nullable', 'in:todo,in_progress,done'],
+            'status' => ['nullable', 'in:todo,in_progress,pending_review,done'],
         ])->validate();
 
         $tasks = $this->accessibleTaskQuery($request)
@@ -31,17 +33,16 @@ class ReportingController extends Controller
             ->orderBy('id')
             ->get();
 
-        return response()->json([
-            'data' => $tasks,
-            'meta' => [
-                'filters' => $validated,
-                'total' => $tasks->count(),
-            ],
+        return Inertia::render('reports/timeline', [
+            'tasks' => $tasks,
+            'projects' => $this->accessibleProjects($request),
+            'filters' => $validated,
+            'total' => $tasks->count(),
         ]);
     }
 
     /** Calendar contract: due-date grouped tasks for calendar rendering. */
-    public function calendar(Request $request): JsonResponse
+    public function calendar(Request $request): Response
     {
         $validated = Validator::make($request->query(), [
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
@@ -67,18 +68,17 @@ class ReportingController extends Controller
             ])
             ->values();
 
-        return response()->json([
-            'data' => $grouped,
-            'meta' => [
-                'filters' => $validated,
-                'days_with_tasks' => $grouped->count(),
-                'total_tasks' => $tasks->count(),
-            ],
+        return Inertia::render('reports/calendar', [
+            'days' => $grouped,
+            'projects' => $this->accessibleProjects($request),
+            'filters' => $validated,
+            'daysWithTasks' => $grouped->count(),
+            'totalTasks' => $tasks->count(),
         ]);
     }
 
     /** Performance contract: summary metrics for accessible tasks. */
-    public function performance(Request $request): JsonResponse
+    public function performance(Request $request): Response
     {
         $validated = Validator::make($request->query(), [
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
@@ -90,27 +90,28 @@ class ReportingController extends Controller
         $total = (clone $query)->count();
         $todo = (clone $query)->where('status', 'todo')->count();
         $inProgress = (clone $query)->where('status', 'in_progress')->count();
+        $pendingReview = (clone $query)->where('status', 'pending_review')->count();
         $done = (clone $query)->where('status', 'done')->count();
         $overdue = (clone $query)
-            ->whereIn('status', ['todo', 'in_progress'])
+            ->whereIn('status', ['todo', 'in_progress', 'pending_review'])
             ->whereNotNull('due_date')
             ->whereDate('due_date', '<', now()->toDateString())
             ->count();
 
         $completionRate = $total > 0 ? round(($done / $total) * 100, 2) : 0.0;
 
-        return response()->json([
-            'data' => [
+        return Inertia::render('reports/performance', [
+            'metrics' => [
                 'total_tasks' => $total,
                 'todo_tasks' => $todo,
                 'in_progress_tasks' => $inProgress,
+                'pending_review_tasks' => $pendingReview,
                 'done_tasks' => $done,
                 'overdue_tasks' => $overdue,
                 'completion_rate' => $completionRate,
             ],
-            'meta' => [
-                'filters' => $validated,
-            ],
+            'projects' => $this->accessibleProjects($request),
+            'filters' => $validated,
         ]);
     }
 
@@ -126,5 +127,19 @@ class ReportingController extends Controller
             $q->where('created_by', $user->id)
                 ->orWhereHas('users', fn (Builder $memberQuery) => $memberQuery->whereKey($user->id));
         });
+    }
+
+    protected function accessibleProjects(Request $request)
+    {
+        $user = $request->user();
+
+        return Project::query()
+            ->select(['id', 'name', 'status'])
+            ->when(! $user->isProjectManager(), function (Builder $query) use ($user): void {
+                $query->where('created_by', $user->id)
+                    ->orWhereHas('users', fn (Builder $memberQuery) => $memberQuery->whereKey($user->id));
+            })
+            ->orderBy('name')
+            ->get();
     }
 }
