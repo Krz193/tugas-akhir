@@ -1,15 +1,22 @@
 // pages/projects/show.tsx — Project detail page.
 // Shows the project info, its tasks, and its members.
 
-import { Head } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { CalendarDays, Plus } from 'lucide-react';
 import { useState } from 'react';
+import ProjectForm from '@/components/projects/project-form';
 import { CreateTaskDialog } from '@/components/tasks/create-task-dialog';
 import { TaskRow } from '@/components/tasks/task-row';
 import { TaskThreadSheet } from '@/components/tasks/task-thread-sheet';
 import { ThreadSection } from '@/components/thread/thread-section';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { useTaskThread } from '@/hooks/use-task-thread';
 import AppLayout from '@/layouts/app-layout';
@@ -20,6 +27,11 @@ import type {
     Task,
     Message
 } from '@/types';
+import type {
+    AvailableUser,
+    ProjectFormData,
+} from '@/types/project';
+
 
 // Props sent by ProjectController::show()
 type Props = {
@@ -30,6 +42,7 @@ type Props = {
     };
     assignees: AppUser[]; // creator + members combined, for the task form
     projectThread: Message[];
+    availableUsers: AvailableUser[];
 };
 
 // Formats 'YYYY-MM-DD' → 'Jun 30, 2026'. Returns '—' if null.
@@ -43,9 +56,25 @@ function formatDate(date: string | null) {
 }
 
 // ------- ProjectShow (main page) -------
-export default function ProjectShow({ project, assignees, projectThread, }: Props) {
+export default function ProjectShow({ project, assignees, projectThread, availableUsers }: Props) {
     const { isProjectManager } = useAuthUser();
     const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+
+    const [editOpen, setEditOpen] = useState(false);
+
+    const {
+        data,
+        setData,
+        patch,
+        processing,
+        errors,
+    } = useForm<ProjectFormData>({
+        name: project.name ?? '',
+        description: project.description ?? '',
+        start_date: project.start_date ?? '',
+        due_date: project.due_date ?? '',
+        member_ids: project.users.map((user) => user.id),
+    });
 
     const {
         selectedTask,
@@ -71,19 +100,37 @@ export default function ProjectShow({ project, assignees, projectThread, }: Prop
             <div className="flex flex-col gap-6 p-4">
                 {/* ── Project Info ── */}
                 <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-semibold">
-                            {project.name}
-                        </h1>
-                        <Badge
-                            variant={
-                                project.status === 'active'
-                                    ? 'default'
-                                    : 'secondary'
-                            }
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-2xl font-semibold">
+                                    {project.name}
+                                </h1>
+
+                                <Badge
+                                    variant={
+                                        project.status === 'active'
+                                            ? 'default'
+                                            : 'secondary'
+                                    }
+                                >
+                                    {project.status.replace('_', ' ')}
+                                </Badge>
+                            </div>
+
+                            {project.description && (
+                                <p className="text-muted-foreground">
+                                    {project.description}
+                                </p>
+                            )}
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            onClick={() => setEditOpen(true)}
                         >
-                            {project.status.replace('_', ' ')}
-                        </Badge>
+                            Edit Project
+                        </Button>
                     </div>
 
                     {/* Dates + creator */}
@@ -95,13 +142,6 @@ export default function ProjectShow({ project, assignees, projectThread, }: Prop
                         </span>
                         <span>Created by {project.creator.name}</span>
                     </div>
-
-                    {/* Description */}
-                    {project.description && (
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            {project.description}
-                        </p>
-                    )}
                 </div>
 
                 {/* Project level discussion/sheet */}
@@ -236,6 +276,35 @@ export default function ProjectShow({ project, assignees, projectThread, }: Prop
                     }
                 }}
             />
+
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Edit Project</DialogTitle>
+                    </DialogHeader>
+
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+
+                            patch(`/projects/${project.id}`, {
+                                onSuccess: () => {
+                                    setEditOpen(false);
+                                },
+                            });
+                        }}
+                    >
+                        <ProjectForm
+                            data={data}
+                            setData={setData}
+                            errors={errors}
+                            processing={processing}
+                            availableUsers={availableUsers}
+                            submitLabel="Save Changes"
+                        />
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

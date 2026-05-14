@@ -5,7 +5,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { CalendarDays, Plus, Users } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
-import InputError from '@/components/input-error';
+import ProjectForm from '@/components/projects/project-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,20 +18,18 @@ import {
 import {
     Dialog,
     DialogContent,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, Project } from '@/types';
+import type { AvailableUser } from '@/types/project';
 
 // Props coming from ProjectController::index() via Inertia
 type Props = {
     projects: Project[];
+    availableUsers: AvailableUser[];
 };
 
 // Maps a status value to a badge color
@@ -118,15 +116,18 @@ function ProjectCard({ project }: { project: Project }) {
 function CreateProjectDialog({
     open,
     onOpenChange,
+    availableUsers,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    availableUsers: AvailableUser[];
 }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         description: '',
         start_date: '',
         due_date: '',
+        member_ids: [] as number[],
     });
 
     function handleSubmit(e: FormEvent) {
@@ -146,81 +147,15 @@ function CreateProjectDialog({
                     <DialogTitle>Create Project</DialogTitle>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="name">
-                            Project Name{' '}
-                            <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                            id="name"
-                            value={data.name}
-                            onChange={(e) => setData('name', e.target.value)}
-                            placeholder="e.g. Website Redesign"
-                            disabled={processing}
-                        />
-                        <InputError message={errors.name} />
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="description">Description</Label>
-                        <textarea
-                            id="description"
-                            rows={3}
-                            value={data.description}
-                            onChange={(e) =>
-                                setData('description', e.target.value)
-                            }
-                            placeholder="What is this project about?"
-                            disabled={processing}
-                            className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                        />
-                        <InputError message={errors.description} />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="start_date">Start Date</Label>
-                            <Input
-                                id="start_date"
-                                type="date"
-                                value={data.start_date}
-                                onChange={(e) =>
-                                    setData('start_date', e.target.value)
-                                }
-                                disabled={processing}
-                            />
-                            <InputError message={errors.start_date} />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="due_date">Due Date</Label>
-                            <Input
-                                id="due_date"
-                                type="date"
-                                value={data.due_date}
-                                onChange={(e) =>
-                                    setData('due_date', e.target.value)
-                                }
-                                disabled={processing}
-                            />
-                            <InputError message={errors.due_date} />
-                        </div>
-                    </div>
-
-                    <DialogFooter className="mt-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => onOpenChange(false)}
-                            disabled={processing}
-                        >
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={processing}>
-                            {processing && <Spinner />}
-                            Create Project
-                        </Button>
-                    </DialogFooter>
+                <form onSubmit={handleSubmit}>
+                    <ProjectForm
+                        data={data}
+                        setData={setData}
+                        errors={errors}
+                        processing={processing}
+                        availableUsers={availableUsers}
+                        submitLabel="Create Project"
+                    />
                 </form>
             </DialogContent>
         </Dialog>
@@ -264,7 +199,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 // Main page component — Inertia renders this when visiting GET /projects
-export default function ProjectsIndex({ projects }: Props) {
+export default function ProjectsIndex({ projects, availableUsers }: Props) {
     const { isProjectManager } = useAuthUser();
     const [createOpen, setCreateOpen] = useState(false);
 
@@ -304,6 +239,7 @@ export default function ProjectsIndex({ projects }: Props) {
             <CreateProjectDialog
                 open={createOpen}
                 onOpenChange={setCreateOpen}
+                availableUsers={availableUsers}
             />
         </AppLayout>
     );

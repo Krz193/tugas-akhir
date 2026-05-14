@@ -12,6 +12,7 @@ use App\Models\Message;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -53,16 +54,34 @@ class ProjectController extends Controller
     }
 
     /** Store a new project and redirect back to the list. */
-    public function store(StoreProjectRequest $request): JsonResponse
+    public function store(StoreProjectRequest $request): RedirectResponse
     {
-        $project = Project::query()->create([
-            ...$request->validated(),
-            'created_by' => $request->user()->id,
-            'status' => $request->validated('status') ?? 'planning',
-        ]);
+        $project = DB::transaction(function () use ($request) {
 
-        // Return JSON with created project so frontend can add members before redirecting
-        return response()->json(['data' => $project], 201);
+            $project = Project::query()->create([
+                ...$request->safe()->except('member_ids'),
+                'created_by' => $request->user()->id,
+                'status' => $request->validated('status') ?? 'planning',
+            ]);
+
+            $memberIds = collect($request->validated('member_ids', []))
+                ->push($request->user()->id)
+                ->unique()
+                ->values();
+
+            $attachData = $memberIds->mapWithKeys(fn ($id) => [
+                $id => [
+                    'added_by' => $request->user()->id,
+                    'joined_at' => now(),
+                ],
+            ]);
+
+            $project->users()->attach($attachData);
+
+            return $project;
+        });
+
+        return redirect()->route('projects.show', $project);
     }
 
     /** Show a project detail page with its tasks and members. */
@@ -98,6 +117,11 @@ class ProjectController extends Controller
 
         $projectThread = $this->buildThreadTree($projectMessages);
 
+        $availableUsers = User::query()
+            ->with(['role', 'division'])
+            ->orderBy('name')
+            ->get();
+
         // Combine project creator + members into one list for the assignee dropdown.
         // Both are valid assignees according to StoreTaskRequest validation.
         $assignees = collect([$project->creator])
@@ -109,6 +133,7 @@ class ProjectController extends Controller
             'project'   => $project,
             'assignees' => $assignees,
             'projectThread' => $projectThread,
+            'availableUsers' => $availableUsers,
         ]);
     }
 
@@ -140,12 +165,13 @@ class ProjectController extends Controller
     }
 
     /** Update project data. */
-    public function update(UpdateProjectRequest $request, Project $project): JsonResponse
+    public function update(UpdateProjectRequest $request, Project $project): RedirectResponse
     {
         $project->fill($request->validated());
         $project->save();
 
-        return response()->json(['data' => $project->fresh()]);
+        // return response()->json(['data' => $project->fresh()]);
+        return redirect()->back();
     }
 
     /** Delete a project and redirect back to the list. */

@@ -20,6 +20,8 @@ class StoreProjectRequest extends FormRequest
             'status' => ['nullable', 'string', 'max:50'],
             'start_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+            'member_ids' => ['nullable', 'array'],
+            'member_ids.*' => ['exists:users,id'],
         ];
     }
 }
