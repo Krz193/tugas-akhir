@@ -35,9 +35,98 @@ class ReportingController extends Controller
 
         return Inertia::render('reports/timeline', [
             'tasks' => $tasks,
-            'projects' => $this->accessibleProjects($request),
+
+            'projects' => $this->accessibleProjects($request)
+                ->select(['id', 'name', 'status'])
+                ->orderBy('name')
+                ->get(),
+
             'filters' => $validated,
             'total' => $tasks->count(),
+        ]);
+    }
+
+    public function projectTimeline(Request $request): Response
+    {
+        $validated = Validator::make($request->query(), [
+            'project_id' => ['nullable', 'integer', 'exists:projects,id'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+        ])->validate();
+
+        $projects = $this->accessibleProjects($request)
+            ->select([
+                'id',
+                'name',
+                'status',
+                'start_date',
+                'due_date',
+            ])
+
+            ->with([
+                'tasks:id,project_id,title,status,start_date,due_date'
+            ])
+
+            ->when(
+                isset($validated['project_id']),
+                fn (Builder $q) =>
+                    $q->where('id', (int) $validated['project_id'])
+            )
+
+            // overlap range filtering
+            ->when(
+                isset($validated['start_date']),
+                fn (Builder $q) =>
+                    $q->whereDate('due_date', '>=', $validated['start_date'])
+            )
+
+            ->when(
+                isset($validated['end_date']),
+                fn (Builder $q) =>
+                    $q->whereDate('start_date', '<=', $validated['end_date'])
+            )
+
+            ->orderBy('start_date')
+            ->orderBy('id')
+
+            ->get()
+
+            ->map(function (Project $project) {
+                return [
+                    'id' => $project->id,
+                    'name' => $project->name,
+                    'status' => $project->status,
+
+                    'start_date' => $project->start_date,
+                    'due_date' => $project->due_date,
+
+                    'tasks' => $project->tasks
+                        ->sortBy('start_date')
+                        ->values()
+                        ->map(function (Task $task) {
+                            return [
+                                'id' => $task->id,
+                                'title' => $task->title,
+                                'status' => $task->status,
+
+                                'start_date' => $task->start_date,
+                                'due_date' => $task->due_date,
+                            ];
+                        }),
+                ];
+            });
+
+        return Inertia::render('reports/project-timeline', [
+            'projects' => $projects,
+
+            'projectsFilter' => $this->accessibleProjects($request)
+                ->select(['id', 'name'])
+                ->orderBy('name')
+                ->get(),
+
+            'filters' => $validated,
+
+            'totalProjects' => $projects->count(),
         ]);
     }
 
@@ -70,7 +159,12 @@ class ReportingController extends Controller
 
         return Inertia::render('reports/calendar', [
             'days' => $grouped,
-            'projects' => $this->accessibleProjects($request),
+
+            'projects' => $this->accessibleProjects($request)
+                ->select(['id', 'name', 'status'])
+                ->orderBy('name')
+                ->get(),
+
             'filters' => $validated,
             'daysWithTasks' => $grouped->count(),
             'totalTasks' => $tasks->count(),
@@ -110,7 +204,12 @@ class ReportingController extends Controller
                 'overdue_tasks' => $overdue,
                 'completion_rate' => $completionRate,
             ],
-            'projects' => $this->accessibleProjects($request),
+
+            'projects' => $this->accessibleProjects($request)
+                ->select(['id', 'name', 'status'])
+                ->orderBy('name')
+                ->get(),
+
             'filters' => $validated,
         ]);
     }
@@ -129,17 +228,16 @@ class ReportingController extends Controller
         });
     }
 
-    protected function accessibleProjects(Request $request)
+    protected function accessibleProjects(Request $request): Builder
     {
         $user = $request->user();
 
         return Project::query()
-            ->select(['id', 'name', 'status'])
             ->when(! $user->isProjectManager(), function (Builder $query) use ($user): void {
                 $query->where('created_by', $user->id)
-                    ->orWhereHas('users', fn (Builder $memberQuery) => $memberQuery->whereKey($user->id));
-            })
-            ->orderBy('name')
-            ->get();
+                    ->orWhereHas('users', fn (Builder $memberQuery) =>
+                        $memberQuery->whereKey($user->id)
+                    );
+            });
     }
 }
