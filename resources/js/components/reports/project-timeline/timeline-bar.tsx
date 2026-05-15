@@ -1,4 +1,3 @@
-import { TimelineTooltip } from './timeline-tooltip';
 import { getStatusTone } from './timeline-utils';
 import type { TimelinePosition, TimelineProject } from './types';
 
@@ -24,7 +23,6 @@ export function TimelineBar({ project, position, onSelect }: TimelineBarProps) {
             }}
         >
             <span className="truncate">{project.name}</span>
-            <TimelineTooltip project={project} />
         </button>
     );
 }
