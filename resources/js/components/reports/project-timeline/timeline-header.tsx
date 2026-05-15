@@ -1,37 +1,33 @@
 import { router } from '@inertiajs/react';
-import { Filter } from 'lucide-react';
-import type { FormEvent } from 'react';
+import type { Dayjs } from 'dayjs';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cleanFilters } from './timeline-utils';
-import type { ProjectFilter, TimelineFilters, TimelineRange } from './types';
+import type { ProjectFilter, TimelineFilters } from './types';
 
 type TimelineHeaderProps = {
     filters: TimelineFilters;
     projectsFilter: ProjectFilter[];
-    range: TimelineRange;
     totalProjects: number;
+    currentMonth: Dayjs
+    onPrev: () => void
+    onNext: () => void
 };
 
 export function TimelineHeader({
     filters,
     projectsFilter,
-    range,
     totalProjects,
+    onPrev,
+    onNext,
+    currentMonth
 }: TimelineHeaderProps) {
-    const [data, setData] = useState<TimelineFilters>({
-        project_id: filters.project_id ? String(filters.project_id) : '',
-        start_date: filters.start_date ?? '',
-        end_date: filters.end_date ?? '',
+    const [data, setData] = useState({
+        project_id: filters.project_id
+            ? String(filters.project_id)
+            : '',
     });
-
-    function submitFilters(event: FormEvent<HTMLFormElement>) {
-        event.preventDefault();
-        router.get('/reports/project-timeline', cleanFilters(data), {
-            preserveScroll: true,
-            preserveState: true,
-        });
-    }
 
     return (
         <div className="flex flex-col gap-4 p-4 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
@@ -41,19 +37,36 @@ export function TimelineHeader({
                 </h1>
                 <p className="text-sm text-muted-foreground">
                     {totalProjects} projects across{' '}
-                    {range.months.map((month) => month.label).join(' and ')}
+                    {currentMonth.format('MMMM YYYY')} and{' '}
+                    {currentMonth.add(1, 'month').format('MMMM YYYY')}
                 </p>
             </div>
 
-            <form
-                onSubmit={submitFilters}
-                className="grid gap-2 sm:grid-cols-[minmax(180px,1fr)_150px_150px_auto]"
+            <div
+                className="grid gap-5 sm:grid-cols-[minmax(180px,1fr)_150px_150px_auto]"
             >
                 <select
                     value={data.project_id ?? ''}
-                    onChange={(event) =>
-                        setData({ ...data, project_id: event.target.value })
-                    }
+                    onChange={(event) => {
+                        const value = event.target.value;
+
+                        setData((prev) => ({
+                            ...prev,
+                            project_id: value,
+                        }));
+
+                        router.get(
+                            '/reports/project-timeline',
+                            cleanFilters({
+                                ...data,
+                                project_id: value,
+                            }),
+                            {
+                                preserveScroll: true,
+                                preserveState: true,
+                            }
+                        );
+                    }}
                     className="h-9 rounded-md border bg-background px-3 text-sm"
                 >
                     <option value="">All projects</option>
@@ -64,29 +77,33 @@ export function TimelineHeader({
                     ))}
                 </select>
 
-                <input
-                    type="date"
-                    value={data.start_date ?? ''}
-                    onChange={(event) =>
-                        setData({ ...data, start_date: event.target.value })
-                    }
-                    className="h-9 rounded-md border bg-background px-3 text-sm"
-                />
+                <div className="flex items-center rounded-md bg-background">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={onPrev}
+                        className="h-9 w-9 rounded-r-none border"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
 
-                <input
-                    type="date"
-                    value={data.end_date ?? ''}
-                    onChange={(event) =>
-                        setData({ ...data, end_date: event.target.value })
-                    }
-                    className="h-9 rounded-md border bg-background px-3 text-sm"
-                />
+                    <div className="whitespace-nowrap px-4 text-sm font-medium">
+                        {currentMonth.format('MMM')} - {' '}
+                        {currentMonth.add(1, 'month').format('MMM YYYY')}
+                    </div>
 
-                <Button type="submit" variant="secondary">
-                    <Filter className="h-4 w-4" />
-                    Filter
-                </Button>
-            </form>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={onNext}
+                        className="h-9 w-9 rounded-l-none border"
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
         </div>
     );
 }

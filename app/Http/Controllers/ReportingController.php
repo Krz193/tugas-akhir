@@ -50,9 +50,24 @@ class ReportingController extends Controller
     {
         $validated = Validator::make($request->query(), [
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
-            'start_date' => ['nullable', 'date'],
-            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+            'month' => ['nullable', 'date_format:Y-m'],
         ])->validate();
+
+        $currentMonth = $validated['month'] ?? now()->format('Y-m');
+
+        [$year, $month] = array_map(
+            'intval',
+            explode('-', $currentMonth)
+        );
+
+        $rangeStart = now()
+            ->setYear($year)
+            ->setMonth($month)
+            ->startOfMonth();
+
+        $rangeEnd = (clone $rangeStart)
+            ->addMonth()
+            ->endOfMonth();
 
         $projects = $this->accessibleProjects($request)
             ->select([
@@ -75,19 +90,15 @@ class ReportingController extends Controller
 
             ->when(
                 isset($validated['project_id']),
-                fn (Builder $q) => $q->where('id', (int) $validated['project_id'])
+                fn (Builder $q) => $q->where(
+                    'id',
+                    (int) $validated['project_id']
+                )
             )
 
-            // overlap range filtering
-            ->when(
-                isset($validated['start_date']),
-                fn (Builder $q) => $q->whereDate('due_date', '>=', $validated['start_date'])
-            )
-
-            ->when(
-                isset($validated['end_date']),
-                fn (Builder $q) => $q->whereDate('start_date', '<=', $validated['end_date'])
-            )
+            // overlap with visible 2-month range
+            ->whereDate('due_date', '>=', $rangeStart)
+            ->whereDate('start_date', '<=', $rangeEnd)
 
             ->orderBy('start_date')
             ->orderBy('id')
@@ -114,6 +125,7 @@ class ReportingController extends Controller
 
                                 'start_date' => $task->start_date,
                                 'due_date' => $task->due_date,
+
                                 'assignee' => $task->assignee ? [
                                     'id' => $task->assignee->id,
                                     'name' => $task->assignee->name,
@@ -121,6 +133,7 @@ class ReportingController extends Controller
                                 ] : null,
                             ];
                         }),
+
                     'members' => $project->users
                         ->map(fn ($user) => [
                             'id' => $user->id,
@@ -128,11 +141,13 @@ class ReportingController extends Controller
                             'email' => $user->email,
                         ])
                         ->values(),
+
                     'threads' => $project->messages
                         ->map(fn ($message) => [
                             'id' => $message->id,
                             'body' => $message->body,
                             'created_at' => $message->created_at,
+
                             'author' => $message->author ? [
                                 'id' => $message->author->id,
                                 'name' => $message->author->name,
@@ -152,6 +167,8 @@ class ReportingController extends Controller
                 ->get(),
 
             'filters' => $validated,
+
+            'currentMonth' => $rangeStart->format('Y-m'),
 
             'totalProjects' => $projects->count(),
         ]);

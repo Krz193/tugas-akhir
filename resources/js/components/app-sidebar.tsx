@@ -33,7 +33,7 @@ const mainNavItems: NavItem[] = [
 
 // Report nav links — shown under a separate "Reports" label
 const reportNavItems: NavItem[] = [
-    { title: 'Timeline', href: '/reports/timeline', icon: GanttChartSquare },
+    { title: 'Timeline', href: '/reports/project-timeline', icon: GanttChartSquare },
     { title: 'Calendar', href: '/reports/calendar', icon: CalendarDays },
     { title: 'Performance', href: '/reports/performance', icon: BarChart3 },
 ];
@@ -54,7 +54,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={mainNavItems} label="Project Management" />
                 <NavMain items={reportNavItems} label="Reports" />
             </SidebarContent>
 

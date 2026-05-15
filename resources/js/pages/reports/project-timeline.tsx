@@ -1,9 +1,10 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
+import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import { TimelineDrawer } from '@/components/reports/project-timeline/timeline-drawer';
 import { TimelineGrid } from '@/components/reports/project-timeline/timeline-grid';
 import { TimelineHeader } from '@/components/reports/project-timeline/timeline-header';
-import { getProjectRange } from '@/components/reports/project-timeline/timeline-utils';
+import { buildTimelineRange } from '@/components/reports/project-timeline/timeline-utils';
 import type {
     ProjectFilter,
     TimelineFilters,
@@ -17,6 +18,7 @@ type Props = {
     projectsFilter: ProjectFilter[];
     filters: TimelineFilters;
     totalProjects: number;
+    currentMonth: string;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -30,9 +32,51 @@ export default function ProjectTimeline({
     filters,
     totalProjects,
 }: Props) {
-    const [selectedProject, setSelectedProject] =
-        useState<TimelineProject | null>(null);
-    const range = useMemo(() => getProjectRange(projects), [projects]);
+    const [selectedProject, setSelectedProject] = useState<TimelineProject | null>(null);
+    const [currentMonth, setCurrentMonth] = useState(
+        dayjs(filters.month ?? dayjs().format('YYYY-MM'))
+    );
+    
+    const range = useMemo(
+        () => buildTimelineRange(currentMonth),
+        [currentMonth]
+    );
+
+    const handlePrevRange = () => {
+        const nextMonth = currentMonth.subtract(2, 'month');
+
+        setCurrentMonth(nextMonth);
+
+        router.get(
+            '/reports/project-timeline',
+            {
+                ...filters,
+                month: nextMonth.format('YYYY-MM'),
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+            }
+        );
+    };
+
+    const handleNextRange = () => {
+        const nextMonth = currentMonth.add(2, 'month');
+
+        setCurrentMonth(nextMonth);
+
+        router.get(
+            '/reports/project-timeline',
+            {
+                ...filters,
+                month: nextMonth.format('YYYY-MM'),
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+            }
+        );
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -42,8 +86,10 @@ export default function ProjectTimeline({
                 <TimelineHeader
                     filters={filters}
                     projectsFilter={projectsFilter}
-                    range={range}
                     totalProjects={totalProjects}
+                    currentMonth={currentMonth}
+                    onPrev={handlePrevRange}
+                    onNext={handleNextRange}
                 />
 
                 <TimelineGrid

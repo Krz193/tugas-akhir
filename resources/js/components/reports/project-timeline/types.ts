@@ -42,6 +42,7 @@ export type TimelineFilters = {
     project_id?: number | string;
     start_date?: string;
     end_date?: string;
+    month?: string;
 };
 
 export type TimelineRange = {

@@ -1,13 +1,11 @@
-import dayjs from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import type {
-    TimelineMonth,
     TimelinePosition,
     TimelineProject,
     TimelineRange,
-    TimelineWeek,
 } from './types';
 
-export const WEEK_WIDTH = 160;
+export const WEEK_WIDTH = 112;
 export const LABEL_WIDTH = 260;
 export const ROW_HEIGHT = 64;
 export const TOTAL_WEEKS = 8;
@@ -23,25 +21,36 @@ export function readableStatus(status: string) {
     return status.replace('_', ' ');
 }
 
-export function getProjectRange(projects: TimelineProject[]): TimelineRange {
-    const starts = projects
-        .map((project) => project.start_date)
-        .filter(Boolean)
-        .map((date) => dayjs(date));
+export function buildTimelineRange(currentMonth: Dayjs) {
+    const months = [0, 1].map((offset) => {
+        const month = currentMonth.add(offset, 'month');
 
-    const start = (
-        starts.length > 0
-            ? starts.sort((a, b) => a.valueOf() - b.valueOf())[0]
-            : dayjs()
-    ).startOf('month');
-    const secondMonth = start.add(1, 'month').startOf('month');
-    const end = secondMonth.endOf('month');
+        return {
+            key: month.format('YYYY-MM'),
+            label: month.format('MMMM'),
+            start: month.startOf('month').toDate(),
+            end: month.endOf('month').toDate(),
+
+            weeks: Array.from({ length: 4 }, (_, index) => ({
+                label: `W${index + 1}`,
+                start: month.add(index * 7, 'day').toDate(),
+                end:
+                    index === 3
+                        ? month.endOf('month').toDate()
+                        : month.add(index * 7 + 6, 'day').toDate(),
+            })),
+        };
+    });
 
     return {
-        start: start.toDate(),
-        end: end.toDate(),
-        months: [buildMonth(start), buildMonth(secondMonth)],
-        totalDays: end.diff(start, 'day') + 1,
+        start: months[0].start,
+        end: months[1].end,
+
+        months,
+
+        totalDays:
+            dayjs(months[1].end).diff(dayjs(months[0].start), 'day') + 1,
+
         width: TIMELINE_WIDTH,
     };
 }
@@ -133,33 +142,4 @@ export function cleanFilters(
             ([, value]) => value !== '' && value !== undefined,
         ),
     );
-}
-
-function buildMonth(monthStart: dayjs.Dayjs): TimelineMonth {
-    const monthEnd = monthStart.endOf('month');
-
-    return {
-        label: monthStart.format('MMMM'),
-        start: monthStart.toDate(),
-        end: monthEnd.toDate(),
-        weeks: Array.from({ length: 4 }, (_, index) =>
-            buildWeek(monthStart, monthEnd, index),
-        ),
-    };
-}
-
-function buildWeek(
-    monthStart: dayjs.Dayjs,
-    monthEnd: dayjs.Dayjs,
-    index: number,
-): TimelineWeek {
-    const weekStart = monthStart.add(index * 7, 'day');
-    const weekEnd =
-        index === 3 ? monthEnd : monthStart.add(index * 7 + 6, 'day');
-
-    return {
-        label: `W${index + 1}`,
-        start: weekStart.toDate(),
-        end: weekEnd.toDate(),
-    };
 }
