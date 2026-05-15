@@ -1,10 +1,12 @@
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
 
+import { CalendarDayDrawer } from '@/components/reports/calendar/calendar-day-drawer';
 import { CalendarFilters } from '@/components/reports/calendar/calendar-filters';
 import { CalendarGrid } from '@/components/reports/calendar/calendar-grid';
 
 import { currentMonth } from '@/components/reports/calendar/calendar-utils';
+
 
 import type {
     CalendarReportProps,
@@ -13,7 +15,7 @@ import type {
 
 import AppLayout from '@/layouts/app-layout';
 
-import type { BreadcrumbItem } from '@/types';
+import type { BreadcrumbItem, CalendarDay } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -33,6 +35,7 @@ export default function CalendarReport({
     daysWithTasks,
     totalTasks,
 }: CalendarReportProps) {
+    const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
     const [data, setData] =
         useState<Filters>({
             project_id:
@@ -77,6 +80,13 @@ export default function CalendarReport({
                                 currentMonth()
                             }
                             days={days}
+                            onSelectDay={setSelectedDay}
+                        />
+
+                        <CalendarDayDrawer
+                            day={selectedDay}
+                            open={selectedDay !== null}
+                            onClose={() => setSelectedDay(null)}
                         />
                     </div>
                 </div>

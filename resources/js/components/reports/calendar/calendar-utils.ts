@@ -1,3 +1,4 @@
+import type { TaskStatus } from '@/types';
 import type { Filters } from './types';
 
 export const weekDays = [
@@ -79,18 +80,30 @@ export function dayLabel(date: string) {
     return Number(date.slice(-2));
 }
 
-export function taskBarClass(status: string) {
-    if (status === 'done') {
-        return 'bg-green-500/20 border-green-500/30 hover:bg-green-500/30';
-    }
+const taskBarStyles: Record<TaskStatus, string> = {
+    todo: `
+        bg-zinc-500/20
+        border-zinc-500/30
+    `,
 
-    if (status === 'in_progress') {
-        return 'bg-blue-500/20 border-blue-500/30 hover:bg-blue-500/30';
-    }
+    in_progress: `
+        bg-blue-500/20
+        border-blue-500/30
+    `,
 
-    if (status === 'pending_review') {
-        return 'bg-amber-500/20 border-amber-500/30 hover:bg-amber-500/30';
-    }
+    pending_review: `
+        bg-amber-500/20
+        border-amber-500/30
+    `,
 
-    return 'bg-zinc-500/20 border-zinc-500/30 hover:bg-zinc-500/30';
+    done: `
+        bg-green-500/20
+        border-green-500/30
+    `,
+};
+
+export function taskBarClass(
+    status: TaskStatus,
+) {
+    return taskBarStyles[status];
 }

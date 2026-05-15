@@ -13,11 +13,13 @@ import {
 type CalendarGridProps = {
     month: string;
     days: CalendarDay[];
+    onSelectDay: (day: CalendarDay) => void;
 };
 
 export function CalendarGrid({
     month,
     days,
+    onSelectDay,
 }: CalendarGridProps) {
     const tasksByDate = new Map(
         days.map((day) => [
@@ -44,23 +46,32 @@ export function CalendarGrid({
                     (date, index) => {
                         const tasks = date
                             ? (tasksByDate.get(
-                                  date,
-                              ) ?? [])
+                                date,
+                            ) ?? [])
                             : [];
 
                         return (
                             <div
-                                key={
-                                    date ??
-                                    `empty-${index}`
-                                }
+                                key={date ?? `empty-${index}`}
+                                role={date ? 'button' : undefined}
                                 className="
                                     min-h-24
                                     border-r
                                     border-b
                                     p-2
                                     last:border-r-0
+                                    cursor-pointer
+                                    transition-colors
+                                    hover:bg-muted/20
                                 "
+                                onClick={() => {
+                                    if (!date) return;
+
+                                    onSelectDay({
+                                        date,
+                                        tasks,
+                                    });
+                                }}
                             >
                                 {date && (
                                     <div className="flex h-full flex-col">
@@ -72,18 +83,13 @@ export function CalendarGrid({
 
                                         <div className="flex flex-1 flex-col gap-1">
                                             {tasks
-                                                .slice(
-                                                    0,
-                                                    2,
-                                                )
+                                                .slice(0, 2,)
                                                 .map(
                                                     (
                                                         task,
                                                     ) => (
                                                         <button
-                                                            key={
-                                                                task.id
-                                                            }
+                                                            key={task.id}
                                                             type="button"
                                                             className={`
                                                                 rounded-md
@@ -92,6 +98,7 @@ export function CalendarGrid({
                                                                 py-1.5
                                                                 text-left
                                                                 transition-colors
+                                                                cursor-pointer
                                                                 ${taskBarClass(task.status as TaskStatus)}
                                                             `}
                                                         >
