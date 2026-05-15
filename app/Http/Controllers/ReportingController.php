@@ -64,26 +64,29 @@ class ReportingController extends Controller
             ])
 
             ->with([
-                'tasks:id,project_id,title,status,start_date,due_date'
+                'tasks:id,project_id,title,status,start_date,due_date,assigned_to',
+                'tasks.assignee:id,name,email',
+                'users:id,name,email',
+                'messages' => fn ($query) => $query
+                    ->with('author:id,name,email')
+                    ->latest()
+                    ->limit(5),
             ])
 
             ->when(
                 isset($validated['project_id']),
-                fn (Builder $q) =>
-                    $q->where('id', (int) $validated['project_id'])
+                fn (Builder $q) => $q->where('id', (int) $validated['project_id'])
             )
 
             // overlap range filtering
             ->when(
                 isset($validated['start_date']),
-                fn (Builder $q) =>
-                    $q->whereDate('due_date', '>=', $validated['start_date'])
+                fn (Builder $q) => $q->whereDate('due_date', '>=', $validated['start_date'])
             )
 
             ->when(
                 isset($validated['end_date']),
-                fn (Builder $q) =>
-                    $q->whereDate('start_date', '<=', $validated['end_date'])
+                fn (Builder $q) => $q->whereDate('start_date', '<=', $validated['end_date'])
             )
 
             ->orderBy('start_date')
@@ -111,8 +114,32 @@ class ReportingController extends Controller
 
                                 'start_date' => $task->start_date,
                                 'due_date' => $task->due_date,
+                                'assignee' => $task->assignee ? [
+                                    'id' => $task->assignee->id,
+                                    'name' => $task->assignee->name,
+                                    'email' => $task->assignee->email,
+                                ] : null,
                             ];
                         }),
+                    'members' => $project->users
+                        ->map(fn ($user) => [
+                            'id' => $user->id,
+                            'name' => $user->name,
+                            'email' => $user->email,
+                        ])
+                        ->values(),
+                    'threads' => $project->messages
+                        ->map(fn ($message) => [
+                            'id' => $message->id,
+                            'body' => $message->body,
+                            'created_at' => $message->created_at,
+                            'author' => $message->author ? [
+                                'id' => $message->author->id,
+                                'name' => $message->author->name,
+                                'email' => $message->author->email,
+                            ] : null,
+                        ])
+                        ->values(),
                 ];
             });
 
@@ -235,8 +262,7 @@ class ReportingController extends Controller
         return Project::query()
             ->when(! $user->isProjectManager(), function (Builder $query) use ($user): void {
                 $query->where('created_by', $user->id)
-                    ->orWhereHas('users', fn (Builder $memberQuery) =>
-                        $memberQuery->whereKey($user->id)
+                    ->orWhereHas('users', fn (Builder $memberQuery) => $memberQuery->whereKey($user->id)
                     );
             });
     }

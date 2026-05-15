@@ -50,6 +50,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('messages/{message}', [MessageController::class, 'destroy'])->name('messages.destroy');
 
     Route::get('reports/timeline', [ReportingController::class, 'timeline'])->name('reports.timeline');
+    Route::get('/reports/project-timeline', [ReportingController::class, 'projectTimeline'])->name('reports.project-timeline');
     Route::get('reports/calendar', [ReportingController::class, 'calendar'])->name('reports.calendar');
     Route::get('reports/performance', [ReportingController::class, 'performance'])->name('reports.performance');
 });
