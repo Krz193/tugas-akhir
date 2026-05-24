@@ -164,13 +164,32 @@ class ProjectController extends Controller
         return $roots;
     }
 
-    /** Update project data. */
+    /** Update project data and sync members. */
     public function update(UpdateProjectRequest $request, Project $project): RedirectResponse
     {
-        $project->fill($request->validated());
-        $project->save();
+        DB::transaction(function () use ($request, $project): void {
+            // Update project fields
+            $project->fill($request->safe()->except('member_ids'));
+            $project->save();
 
-        // return response()->json(['data' => $project->fresh()]);
+            // Sync members if provided
+            if ($request->has('member_ids')) {
+                $memberIds = collect($request->validated('member_ids', []))
+                    ->push($project->created_by)  // Always include project creator
+                    ->unique()
+                    ->values();
+
+                $attachData = $memberIds->mapWithKeys(fn ($id) => [
+                    $id => [
+                        'added_by' => $request->user()->id,
+                        'joined_at' => now(),
+                    ],
+                ]);
+
+                $project->users()->sync($attachData);
+            }
+        });
+
         return redirect()->back();
     }
 
