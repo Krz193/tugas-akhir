@@ -23,6 +23,8 @@ class UpdateProjectRequest extends FormRequest
             'status' => ['sometimes', 'required', 'string', 'max:50'],
             'start_date' => ['sometimes', 'nullable', 'date'],
             'due_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:start_date'],
+            'member_ids' => ['nullable', 'array'],
+            'member_ids.*' => ['exists:users,id'],
         ];
     }
 }
