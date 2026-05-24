@@ -25,7 +25,7 @@ class TaskController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ])->validate();
 
-        $perPage = (int) ($validated['per_page'] ?? 15);
+        $perPage = (int) ($validated['per_page'] ?? 25);
 
         $tasks = Task::query()
             ->with(['project:id,name,status', 'creator:id,name,email', 'assignee:id,name,email'])
@@ -44,9 +44,20 @@ class TaskController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        // return redirect()->back()->with('tasks', $tasks);
+        $userId = $request->user()->id;
+
+        // Fetch projects the user is assigned to or created, use whereHas to avoid manual joins
+        $projects = Project::query()
+            ->where(function ($query) use ($userId) {
+                $query->whereHas('users', fn ($q) => $q->where('users.id', $userId))
+                ->orWhere('created_by', $userId);
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return Inertia::render('tasks/my-tasks', [
             'tasks' => $tasks,
+            'projects' => $projects,
         ]);
     }
 
