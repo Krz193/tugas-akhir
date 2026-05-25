@@ -4,10 +4,7 @@ import {
     AppDrawerSection,
 } from '@/components/ui/drawer/app-drawer';
 
-import type {
-    CalendarDay,
-    TaskStatus,
-} from '@/types';
+import type { CalendarDay, TaskStatus } from '@/types';
 
 type CalendarDayDrawerProps = {
     day: CalendarDay | null;
@@ -15,10 +12,7 @@ type CalendarDayDrawerProps = {
     onClose: () => void;
 };
 
-const statusOrder: Record<
-    TaskStatus,
-    number
-> = {
+const statusOrder: Record<TaskStatus, number> = {
     in_progress: 0,
     pending_review: 1,
     todo: 2,
@@ -58,15 +52,12 @@ function statusClass(status: TaskStatus) {
 }
 
 function formatDate(date: string) {
-    return new Date(date).toLocaleDateString(
-        'en-US',
-        {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-        },
-    );
+    return new Date(date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
 }
 
 export function CalendarDayDrawer({
@@ -79,8 +70,7 @@ export function CalendarDayDrawer({
               day.tasks.reduce(
                   (acc, task) => {
                       const projectName =
-                          task.project?.name ??
-                          'Unknown Project';
+                          task.project?.name ?? 'Unknown Project';
 
                       if (!acc[projectName]) {
                           acc[projectName] = [];
@@ -90,114 +80,72 @@ export function CalendarDayDrawer({
 
                       return acc;
                   },
-                  {} as Record<
-                      string,
-                      typeof day.tasks
-                  >,
+                  {} as Record<string, typeof day.tasks>,
               ),
           )
         : [];
 
     return (
-        <AppDrawer
-            open={open}
-            onClose={onClose}
-        >
+        <AppDrawer open={open} onClose={onClose}>
             {day && (
                 <div className="flex h-full flex-col">
                     <AppDrawerHeader
                         title="Daily Tasks"
-                        description={formatDate(
-                            day.date,
-                        )}
+                        description={formatDate(day.date)}
                         onClose={onClose}
                     />
 
                     <div className="flex-1 space-y-6 overflow-y-auto p-6">
-                        {groupedProjects.map(
-                            (
-                                [
-                                    projectName,
-                                    tasks,
-                                ],
-                            ) => {
-                                const sortedTasks =
-                                    [...tasks].sort(
-                                        (a, b) =>
-                                            statusOrder[
-                                                a.status
-                                            ] -
-                                            statusOrder[
-                                                b.status
-                                            ],
-                                    );
+                        {groupedProjects.map(([projectName, tasks]) => {
+                            const sortedTasks = [...tasks].sort(
+                                (a, b) =>
+                                    statusOrder[a.status] -
+                                    statusOrder[b.status],
+                            );
 
-                                return (
-                                    <AppDrawerSection
-                                        key={
-                                            projectName
-                                        }
-                                        title={
-                                            projectName
-                                        }
-                                    >
-                                        <div className="space-y-3">
-                                            {sortedTasks.map(
-                                                (
-                                                    task,
-                                                ) => (
-                                                    <div
-                                                        key={
-                                                            task.id
-                                                        }
-                                                        className="rounded-xl border bg-card p-4"
-                                                    >
-                                                        <div className="flex items-start justify-between gap-3">
-                                                            <div className="min-w-0 flex-1">
-                                                                <p className="truncate text-sm font-medium">
-                                                                    {
-                                                                        task.title
-                                                                    }
-                                                                </p>
+                            return (
+                                <AppDrawerSection
+                                    key={projectName}
+                                    title={projectName}
+                                >
+                                    <div className="space-y-3">
+                                        {sortedTasks.map((task) => (
+                                            <div
+                                                key={task.id}
+                                                className="rounded-xl border bg-card p-4"
+                                            >
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="truncate text-sm font-medium">
+                                                            {task.title}
+                                                        </p>
 
-                                                                {task.assignee && (
-                                                                    <p className="mt-1 text-xs text-muted-foreground">
-                                                                        Assigned
-                                                                        to{' '}
-                                                                        {
-                                                                            task
-                                                                                .assignee
-                                                                                .name
-                                                                        }
-                                                                    </p>
-                                                                )}
-                                                            </div>
-
-                                                            <span
-                                                                className={`
-                                                                    rounded-full
-                                                                    border
-                                                                    px-2.5
-                                                                    py-1
-                                                                    text-[11px]
-                                                                    font-medium
-                                                                    whitespace-nowrap
-                                                                    ${statusClass(task.status)}
-                                                                `}
-                                                            >
-                                                                {readableStatus(
-                                                                    task.status,
-                                                                )}
-                                                            </span>
-                                                        </div>
+                                                        {task.assignee && (
+                                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                                Assigned to{' '}
+                                                                {
+                                                                    task
+                                                                        .assignee
+                                                                        .name
+                                                                }
+                                                            </p>
+                                                        )}
                                                     </div>
-                                                ),
-                                            )}
-                                        </div>
-                                    </AppDrawerSection>
-                                );
-                            },
-                        )}
+
+                                                    <span
+                                                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap ${statusClass(task.status)} `}
+                                                    >
+                                                        {readableStatus(
+                                                            task.status,
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </AppDrawerSection>
+                            );
+                        })}
 
                         {day.tasks.length === 0 && (
                             <div className="text-sm text-muted-foreground">

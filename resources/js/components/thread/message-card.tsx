@@ -33,20 +33,16 @@ export function MessageCard({
     setEditingBody,
     errors,
     processing,
-    onMessageSent
+    onMessageSent,
 }: MessageCardProps) {
     return (
         <div key={message.id} className="rounded-lg border p-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <p className="font-medium">
-                        {message.author.name}
-                    </p>
+                    <p className="font-medium">{message.author.name}</p>
 
                     <p className="text-xs text-muted-foreground">
-                        {new Date(
-                            message.created_at,
-                        ).toLocaleString()}
+                        {new Date(message.created_at).toLocaleString()}
                     </p>
                 </div>
 
@@ -75,7 +71,7 @@ export function MessageCard({
                                     preserveScroll: true,
                                     onSuccess: () => {
                                         onMessageSent?.();
-                                    }
+                                    },
                                 });
                             }}
                             className="text-destructive transition-opacity hover:opacity-70"
@@ -136,7 +132,7 @@ export function MessageCard({
                     </div>
                 </form>
             ) : (
-                <p className="mt-3 whitespace-pre-wrap text-sm">
+                <p className="mt-3 text-sm whitespace-pre-wrap">
                     {message.body}
                 </p>
             )}
@@ -147,9 +143,7 @@ export function MessageCard({
                     type="button"
                     onClick={() =>
                         setReplyingTo(
-                            replyingTo === message.id
-                                ? null
-                                : message.id,
+                            replyingTo === message.id ? null : message.id,
                         )
                     }
                     className="text-sm text-muted-foreground hover:underline"
@@ -162,17 +156,20 @@ export function MessageCard({
                     onSubmit={(e) => {
                         e.preventDefault();
 
-                        router.post(url, {
+                        router.post(
+                            url,
+                            {
                                 body: replyBody,
                                 parent_id: message.id,
-                            }, {
+                            },
+                            {
                                 preserveScroll: true,
                                 onSuccess: () => {
                                     setReplyBody('');
                                     setReplyingTo(null);
                                     onMessageSent?.();
                                 },
-                            }
+                            },
                         );
                     }}
                     className="mt-3 space-y-3"
@@ -231,7 +228,7 @@ export function MessageCard({
                                 </p>
                             </div>
 
-                            <p className="mt-3 whitespace-pre-wrap text-sm">
+                            <p className="mt-3 text-sm whitespace-pre-wrap">
                                 {reply.body}
                             </p>
                         </div>
@@ -239,6 +236,5 @@ export function MessageCard({
                 </div>
             )}
         </div>
-    )
+    );
 }
-

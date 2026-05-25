@@ -1,17 +1,11 @@
 import { router } from '@inertiajs/react';
 
 import { cleanFilters } from './calendar-utils';
-import type {
-    Filters,
-    ProjectOption,
-} from './types';
-
+import type { Filters, ProjectOption } from './types';
 
 type CalendarFiltersProps = {
     data: Filters;
-    setData: React.Dispatch<
-        React.SetStateAction<Filters>
-    >;
+    setData: React.Dispatch<React.SetStateAction<Filters>>;
     projects: ProjectOption[];
 };
 
@@ -20,17 +14,11 @@ export function CalendarFilters({
     setData,
     projects,
 }: CalendarFiltersProps) {
-    function updateFilters(
-        nextFilters: Filters,
-    ) {
-        router.get(
-            '/reports/calendar',
-            cleanFilters(nextFilters),
-            {
-                preserveScroll: true,
-                preserveState: true,
-            },
-        );
+    function updateFilters(nextFilters: Filters) {
+        router.get('/reports/calendar', cleanFilters(nextFilters), {
+            preserveScroll: true,
+            preserveState: true,
+        });
     }
 
     return (
@@ -40,8 +28,7 @@ export function CalendarFilters({
                 onChange={(event) => {
                     const nextData = {
                         ...data,
-                        project_id:
-                            event.target.value,
+                        project_id: event.target.value,
                     };
 
                     setData(nextData);
@@ -49,15 +36,10 @@ export function CalendarFilters({
                 }}
                 className="h-10 w-full rounded-lg border bg-background px-3 text-sm"
             >
-                <option value="">
-                    All projects
-                </option>
+                <option value="">All projects</option>
 
                 {projects.map((project) => (
-                    <option
-                        key={project.id}
-                        value={project.id}
-                    >
+                    <option key={project.id} value={project.id}>
                         {project.name}
                     </option>
                 ))}
@@ -69,8 +51,7 @@ export function CalendarFilters({
                 onChange={(event) => {
                     const nextData = {
                         ...data,
-                        month:
-                            event.target.value,
+                        month: event.target.value,
                     };
 
                     setData(nextData);

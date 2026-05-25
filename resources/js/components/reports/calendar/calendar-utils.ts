@@ -1,15 +1,7 @@
 import type { TaskStatus } from '@/types';
 import type { Filters } from './types';
 
-export const weekDays = [
-    'Sun',
-    'Mon',
-    'Tue',
-    'Wed',
-    'Thu',
-    'Fri',
-    'Sat',
-];
+export const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function currentMonth() {
     return new Date().toISOString().slice(0, 7);
@@ -18,62 +10,34 @@ export function currentMonth() {
 export function cleanFilters(filters: Filters) {
     return Object.fromEntries(
         Object.entries(filters).filter(
-            ([, value]) =>
-                value !== '' &&
-                value !== undefined,
+            ([, value]) => value !== '' && value !== undefined,
         ),
     );
 }
 
 export function monthDays(month: string) {
-    const [year, monthNumber] = month
-        .split('-')
-        .map(Number);
+    const [year, monthNumber] = month.split('-').map(Number);
 
-    const firstDate = new Date(
-        year,
-        monthNumber - 1,
-        1,
-    );
+    const firstDate = new Date(year, monthNumber - 1, 1);
 
-    const lastDate = new Date(
-        year,
-        monthNumber,
-        0,
-    );
+    const lastDate = new Date(year, monthNumber, 0);
 
-    const leadingEmptyDays =
-        firstDate.getDay();
+    const leadingEmptyDays = firstDate.getDay();
 
-    const days = Array.from(
-        { length: lastDate.getDate() },
-        (_, index) => {
-            const day = String(
-                index + 1,
-            ).padStart(2, '0');
+    const days = Array.from({ length: lastDate.getDate() }, (_, index) => {
+        const day = String(index + 1).padStart(2, '0');
 
-            return `${month}-${day}`;
-        },
-    );
+        return `${month}-${day}`;
+    });
 
     const cells = [
-        ...Array.from(
-            { length: leadingEmptyDays },
-            () => null,
-        ),
+        ...Array.from({ length: leadingEmptyDays }, () => null),
         ...days,
     ];
 
-    const trailingEmptyDays =
-        (7 - (cells.length % 7)) % 7;
+    const trailingEmptyDays = (7 - (cells.length % 7)) % 7;
 
-    return [
-        ...cells,
-        ...Array.from(
-            { length: trailingEmptyDays },
-            () => null,
-        ),
-    ];
+    return [...cells, ...Array.from({ length: trailingEmptyDays }, () => null)];
 }
 
 export function dayLabel(date: string) {
@@ -102,8 +66,6 @@ const taskBarStyles: Record<TaskStatus, string> = {
     `,
 };
 
-export function taskBarClass(
-    status: TaskStatus,
-) {
+export function taskBarClass(status: TaskStatus) {
     return taskBarStyles[status];
 }

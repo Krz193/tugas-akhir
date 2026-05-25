@@ -32,19 +32,15 @@ export function TaskThreadSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent className="w-full overflow-y-auto p-5 sm:max-w-2xl">
                 <SheetHeader>
-                    <SheetTitle className="text-2xl">
-                        {task?.title}
-                    </SheetTitle>
+                    <SheetTitle className="text-2xl">{task?.title}</SheetTitle>
                 </SheetHeader>
 
                 <div className="mt-6 space-y-6">
                     {task?.description && (
                         <div>
-                            <h3 className="text-sm font-medium">
-                                Description
-                            </h3>
+                            <h3 className="text-sm font-medium">Description</h3>
 
-                            <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                            <p className="mt-2 text-sm whitespace-pre-wrap text-muted-foreground">
                                 {task.description}
                             </p>
                         </div>
@@ -52,9 +48,7 @@ export function TaskThreadSheet({
 
                     <div className="space-y-4">
                         <div>
-                            <h3 className="font-medium">
-                                Discussion
-                            </h3>
+                            <h3 className="font-medium">Discussion</h3>
 
                             <p className="text-sm text-muted-foreground">
                                 Task discussion thread.

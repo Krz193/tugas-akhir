@@ -32,14 +32,15 @@ export default function ProjectTimeline({
     filters,
     totalProjects,
 }: Props) {
-    const [selectedProject, setSelectedProject] = useState<TimelineProject | null>(null);
+    const [selectedProject, setSelectedProject] =
+        useState<TimelineProject | null>(null);
     const [currentMonth, setCurrentMonth] = useState(
-        dayjs(filters.month ?? dayjs().format('YYYY-MM'))
+        dayjs(filters.month ?? dayjs().format('YYYY-MM')),
     );
-    
+
     const range = useMemo(
         () => buildTimelineRange(currentMonth),
-        [currentMonth]
+        [currentMonth],
     );
 
     const handlePrevRange = () => {
@@ -56,7 +57,7 @@ export default function ProjectTimeline({
             {
                 preserveScroll: true,
                 preserveState: true,
-            }
+            },
         );
     };
 
@@ -74,7 +75,7 @@ export default function ProjectTimeline({
             {
                 preserveScroll: true,
                 preserveState: true,
-            }
+            },
         );
     };
 

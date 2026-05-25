@@ -6,12 +6,7 @@ import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { Message } from '@/types';
 
-import type {
-    BreadcrumbItem,
-    PaginatedResponse,
-    Project,
-    Task,
-} from '@/types';
+import type { BreadcrumbItem, PaginatedResponse, Project, Task } from '@/types';
 
 type Props = {
     tasks: PaginatedResponse<Task>;
@@ -53,7 +48,9 @@ export default function MyTasksPage({ tasks, projects }: Props) {
             return '';
         }
 
-        return new URLSearchParams(window.location.search).get('project_id') ?? '';
+        return (
+            new URLSearchParams(window.location.search).get('project_id') ?? ''
+        );
     });
 
     const getQueryParams = () => {
@@ -68,12 +65,18 @@ export default function MyTasksPage({ tasks, projects }: Props) {
         const params = getQueryParams();
         params.set('page', String(page));
 
-        const url = params.toString() ? `/my-tasks?${params.toString()}` : '/my-tasks';
+        const url = params.toString()
+            ? `/my-tasks?${params.toString()}`
+            : '/my-tasks';
 
-        router.get(url, {}, {
-            preserveScroll: true,
-            preserveState: true,
-        });
+        router.get(
+            url,
+            {},
+            {
+                preserveScroll: true,
+                preserveState: true,
+            },
+        );
     };
 
     const pageNumbers = useMemo(() => {
@@ -88,7 +91,10 @@ export default function MyTasksPage({ tasks, projects }: Props) {
             end = Math.min(last, start + 4);
         }
 
-        return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+        return Array.from(
+            { length: end - start + 1 },
+            (_, index) => start + index,
+        );
     }, [tasks.current_page, tasks.last_page]);
 
     const fetchTaskMessages = async (taskId: number) => {
@@ -123,14 +129,12 @@ export default function MyTasksPage({ tasks, projects }: Props) {
             <div className="flex flex-col gap-6 p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-2xl font-semibold">
-                            My Tasks
-                        </h1>
+                        <h1 className="text-2xl font-semibold">My Tasks</h1>
 
-                    <p className="text-sm text-muted-foreground">
-                        Tasks assigned to you.
-                    </p>
-                </div>
+                        <p className="text-sm text-muted-foreground">
+                            Tasks assigned to you.
+                        </p>
+                    </div>
 
                     <div className="flex flex-wrap items-center gap-3">
                         <label className="sr-only" htmlFor="project_filter">
@@ -158,10 +162,14 @@ export default function MyTasksPage({ tasks, projects }: Props) {
                                     ? `/my-tasks?${params.toString()}`
                                     : '/my-tasks';
 
-                                router.get(url, {}, {
-                                    preserveScroll: true,
-                                    preserveState: true,
-                                });
+                                router.get(
+                                    url,
+                                    {},
+                                    {
+                                        preserveScroll: true,
+                                        preserveState: true,
+                                    },
+                                );
                             }}
                             className="h-10 rounded-md border bg-background px-3 text-sm"
                         >
@@ -183,30 +191,34 @@ export default function MyTasksPage({ tasks, projects }: Props) {
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {Object.entries(groupedTasks).map(([projectName, projectTasks]) => (
-                            <div key={projectName} className="space-y-3">
-                                <div className="flex items-center justify-between border-b pb-2">
-                                    <h2 className="text-lg font-semibold">
-                                        {projectName}
-                                    </h2>
+                        {Object.entries(groupedTasks).map(
+                            ([projectName, projectTasks]) => (
+                                <div key={projectName} className="space-y-3">
+                                    <div className="flex items-center justify-between border-b pb-2">
+                                        <h2 className="text-lg font-semibold">
+                                            {projectName}
+                                        </h2>
 
-                                    <span className="text-sm text-muted-foreground">
-                                        {projectTasks.length} tasks
-                                    </span>
-                                </div>
+                                        <span className="text-sm text-muted-foreground">
+                                            {projectTasks.length} tasks
+                                        </span>
+                                    </div>
 
-                                <div className="rounded-lg border">
-                                    {projectTasks.map((task) => (
-                                        <TaskRow
-                                            key={task.id}
-                                            task={task}
-                                            canDelete={false}
-                                            onClick={() => openTaskThread(task)}
-                                        />
-                                    ))}
+                                    <div className="rounded-lg border">
+                                        {projectTasks.map((task) => (
+                                            <TaskRow
+                                                key={task.id}
+                                                task={task}
+                                                canDelete={false}
+                                                onClick={() =>
+                                                    openTaskThread(task)
+                                                }
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ),
+                        )}
                     </div>
                 )}
 
@@ -214,7 +226,8 @@ export default function MyTasksPage({ tasks, projects }: Props) {
                     <div className="rounded-xl border bg-background p-4">
                         <div className="mb-3 flex items-center justify-between gap-4 text-sm text-muted-foreground">
                             <span>
-                                Showing {tasks.from} - {tasks.to} of {tasks.total} tasks
+                                Showing {tasks.from} - {tasks.to} of{' '}
+                                {tasks.total} tasks
                             </span>
                             <span>
                                 Page {tasks.current_page} of {tasks.last_page}
@@ -228,22 +241,28 @@ export default function MyTasksPage({ tasks, projects }: Props) {
                                 disabled={tasks.current_page === 1}
                                 onClick={() => visitPage(1)}
                             >
-                                { '<<' }
+                                {'<<'}
                             </Button>
 
                             <Button
                                 variant="secondary"
                                 size="sm"
                                 disabled={tasks.current_page === 1}
-                                onClick={() => visitPage(tasks.current_page - 1)}
+                                onClick={() =>
+                                    visitPage(tasks.current_page - 1)
+                                }
                             >
-                                { '<' }
+                                {'<'}
                             </Button>
 
                             {pageNumbers.map((page) => (
                                 <Button
                                     key={page}
-                                    variant={page === tasks.current_page ? 'default' : 'secondary'}
+                                    variant={
+                                        page === tasks.current_page
+                                            ? 'default'
+                                            : 'secondary'
+                                    }
                                     size="sm"
                                     onClick={() => visitPage(page)}
                                     disabled={page === tasks.current_page}
@@ -255,19 +274,25 @@ export default function MyTasksPage({ tasks, projects }: Props) {
                             <Button
                                 variant="secondary"
                                 size="sm"
-                                disabled={tasks.current_page === tasks.last_page}
-                                onClick={() => visitPage(tasks.current_page + 1)}
+                                disabled={
+                                    tasks.current_page === tasks.last_page
+                                }
+                                onClick={() =>
+                                    visitPage(tasks.current_page + 1)
+                                }
                             >
-                                { '>' }
+                                {'>'}
                             </Button>
 
                             <Button
                                 variant="secondary"
                                 size="sm"
-                                disabled={tasks.current_page === tasks.last_page}
+                                disabled={
+                                    tasks.current_page === tasks.last_page
+                                }
                                 onClick={() => visitPage(tasks.last_page)}
                             >
-                                { '>>' }
+                                {'>>'}
                             </Button>
                         </div>
                     </div>

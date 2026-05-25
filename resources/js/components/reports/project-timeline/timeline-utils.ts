@@ -1,9 +1,5 @@
 import dayjs, { type Dayjs } from 'dayjs';
-import type {
-    TimelinePosition,
-    TimelineProject,
-    TimelineRange,
-} from './types';
+import type { TimelinePosition, TimelineProject, TimelineRange } from './types';
 
 export const WEEK_WIDTH = 112;
 export const LABEL_WIDTH = 260;
@@ -48,8 +44,7 @@ export function buildTimelineRange(currentMonth: Dayjs) {
 
         months,
 
-        totalDays:
-            dayjs(months[1].end).diff(dayjs(months[0].start), 'day') + 1,
+        totalDays: dayjs(months[1].end).diff(dayjs(months[0].start), 'day') + 1,
 
         width: TIMELINE_WIDTH,
     };

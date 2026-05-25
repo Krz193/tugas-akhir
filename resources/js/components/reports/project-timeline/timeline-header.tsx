@@ -10,9 +10,9 @@ type TimelineHeaderProps = {
     filters: TimelineFilters;
     projectsFilter: ProjectFilter[];
     totalProjects: number;
-    currentMonth: Dayjs
-    onPrev: () => void
-    onNext: () => void
+    currentMonth: Dayjs;
+    onPrev: () => void;
+    onNext: () => void;
 };
 
 export function TimelineHeader({
@@ -21,12 +21,10 @@ export function TimelineHeader({
     totalProjects,
     onPrev,
     onNext,
-    currentMonth
+    currentMonth,
 }: TimelineHeaderProps) {
     const [data, setData] = useState({
-        project_id: filters.project_id
-            ? String(filters.project_id)
-            : '',
+        project_id: filters.project_id ? String(filters.project_id) : '',
     });
 
     return (
@@ -42,9 +40,7 @@ export function TimelineHeader({
                 </p>
             </div>
 
-            <div
-                className="grid gap-5 sm:grid-cols-[minmax(180px,1fr)_150px_150px_auto]"
-            >
+            <div className="grid gap-5 sm:grid-cols-[minmax(180px,1fr)_150px_150px_auto]">
                 <select
                     value={data.project_id ?? ''}
                     onChange={(event) => {
@@ -64,7 +60,7 @@ export function TimelineHeader({
                             {
                                 preserveScroll: true,
                                 preserveState: true,
-                            }
+                            },
                         );
                     }}
                     className="h-9 rounded-md border bg-background px-3 text-sm"
@@ -88,8 +84,8 @@ export function TimelineHeader({
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
 
-                    <div className="whitespace-nowrap px-4 text-sm font-medium">
-                        {currentMonth.format('MMM')} - {' '}
+                    <div className="px-4 text-sm font-medium whitespace-nowrap">
+                        {currentMonth.format('MMM')} -{' '}
                         {currentMonth.add(1, 'month').format('MMM YYYY')}
                     </div>
 

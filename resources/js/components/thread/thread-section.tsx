@@ -14,11 +14,13 @@ export function ThreadSection({
     messages,
     messageableType,
     messageableId,
-    onMessageSent
+    onMessageSent,
 }: ThreadSectionProps) {
     const [replyingTo, setReplyingTo] = useState<number | null>(null);
     const [replyBody, setReplyBody] = useState('');
-    const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+    const [editingMessageId, setEditingMessageId] = useState<number | null>(
+        null,
+    );
     const [editingBody, setEditingBody] = useState('');
 
     const { auth } = usePage<{
@@ -29,22 +31,16 @@ export function ThreadSection({
         };
     }>().props;
 
-    const url = messageableType === 'project' 
-                    ? `/projects/${messageableId}/messages`
-                    : `/tasks/${messageableId}/messages`;
+    const url =
+        messageableType === 'project'
+            ? `/projects/${messageableId}/messages`
+            : `/tasks/${messageableId}/messages`;
 
-    const {
-        data,
-        setData,
-        post,
-        processing,
-        reset,
-        transform,
-        errors,
-    } = useForm({
-        body: '',
-        parent_id: null as number | null,
-    });
+    const { data, setData, post, processing, reset, transform, errors } =
+        useForm({
+            body: '',
+            parent_id: null as number | null,
+        });
 
     return (
         <div className="space-y-4">
@@ -102,9 +98,7 @@ export function ThreadSection({
                     className="flex min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
                 />
                 {errors.body && (
-                    <p className="text-sm text-destructive">
-                        {errors.body}
-                    </p>
+                    <p className="text-sm text-destructive">{errors.body}</p>
                 )}
 
                 <div className="flex justify-end">

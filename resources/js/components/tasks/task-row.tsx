@@ -37,15 +37,10 @@ type TaskRowProps = {
     onClick: () => void;
 };
 
-export function TaskRow({
-    task,
-    canDelete,
-    onClick,
-}: TaskRowProps) {
+export function TaskRow({ task, canDelete, onClick }: TaskRowProps) {
     const { user, isProjectManager } = useAuthUser();
 
-    const canUpdateStatus =
-        isProjectManager() || task.assigned_to === user.id;
+    const canUpdateStatus = isProjectManager() || task.assigned_to === user.id;
 
     function handleStatusChange(newStatus: string) {
         router.patch(`/tasks/${task.id}/status`, {
@@ -61,8 +56,7 @@ export function TaskRow({
 
     const isLeadOrPm = isProjectManager();
     const shouldRenderLockedState =
-        ['pending_review', 'done'].includes(task.status)
-        && !isLeadOrPm;
+        ['pending_review', 'done'].includes(task.status) && !isLeadOrPm;
 
     const isMember = !isLeadOrPm;
     const showSeekApprovalButton = isMember && task.status === 'in_progress';
@@ -70,16 +64,14 @@ export function TaskRow({
     return (
         <div
             onClick={onClick}
-            className="flex cursor-pointer items-center gap-3 border-b px-5 py-3 transition-colors hover:bg-muted/50 last:border-0"
+            className="flex cursor-pointer items-center gap-3 border-b px-5 py-3 transition-colors last:border-0 hover:bg-muted/50"
         >
             <div className="w-28">
                 {shouldRenderLockedState ? (
                     <div
                         className={`flex h-9 items-center justify-center rounded-md border text-xs font-medium shadow-sm transition-colors ${statusSelectClass(task.status)}`}
                     >
-                        {task.status === 'done'
-                            ? 'Done'
-                            : 'Pending Review'}
+                        {task.status === 'done' ? 'Done' : 'Pending Review'}
                     </div>
                 ) : (
                     <select
@@ -92,20 +84,15 @@ export function TaskRow({
                         <option value="todo">Todo</option>
                         <option value="in_progress">In Progress</option>
 
-                        <option
-                            value="done"
-                            disabled={!isLeadOrPm}
-                        >
+                        <option value="done" disabled={!isLeadOrPm}>
                             Done
                         </option>
                     </select>
                 )}
             </div>
 
-            <div className="flex items-center gap-2 flex-1">
-                <span className="text-sm font-medium">
-                    {task.title}
-                </span>
+            <div className="flex flex-1 items-center gap-2">
+                <span className="text-sm font-medium">{task.title}</span>
 
                 {showSeekApprovalButton && (
                     <button
@@ -125,9 +112,7 @@ export function TaskRow({
             </span>
 
             <span className="hidden w-24 text-right text-xs text-muted-foreground sm:block">
-                {task.due_date
-                    ? formatDate(task.due_date)
-                    : '—'}
+                {task.due_date ? formatDate(task.due_date) : '—'}
             </span>
 
             {canDelete && (

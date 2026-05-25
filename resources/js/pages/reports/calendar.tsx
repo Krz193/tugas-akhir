@@ -7,7 +7,6 @@ import { CalendarGrid } from '@/components/reports/calendar/calendar-grid';
 
 import { currentMonth } from '@/components/reports/calendar/calendar-utils';
 
-
 import type {
     CalendarReportProps,
     Filters,
@@ -36,17 +35,10 @@ export default function CalendarReport({
     totalTasks,
 }: CalendarReportProps) {
     const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
-    const [data, setData] =
-        useState<Filters>({
-            project_id:
-                filters.project_id
-                    ? String(
-                        filters.project_id,
-                    ) : '',
-            month:
-                filters.month ??
-                currentMonth(),
-        });
+    const [data, setData] = useState<Filters>({
+        project_id: filters.project_id ? String(filters.project_id) : '',
+        month: filters.month ?? currentMonth(),
+    });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -54,13 +46,10 @@ export default function CalendarReport({
 
             <div className="flex flex-col gap-6 p-6">
                 <div className="space-y-1">
-                    <h1 className="text-2xl font-semibold">
-                        Calendar
-                    </h1>
+                    <h1 className="text-2xl font-semibold">Calendar</h1>
 
                     <p className="text-sm text-muted-foreground">
-                        {totalTasks} dated tasks on{' '}
-                        {daysWithTasks} days
+                        {totalTasks} dated tasks on {daysWithTasks} days
                     </p>
                 </div>
 
@@ -75,10 +64,7 @@ export default function CalendarReport({
 
                     <div className="min-w-0 flex-1">
                         <CalendarGrid
-                            month={
-                                data.month ??
-                                currentMonth()
-                            }
+                            month={data.month ?? currentMonth()}
                             days={days}
                             onSelectDay={setSelectedDay}
                         />

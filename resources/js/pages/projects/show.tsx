@@ -20,18 +20,8 @@ import {
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { useTaskThread } from '@/hooks/use-task-thread';
 import AppLayout from '@/layouts/app-layout';
-import type {
-    AppUser,
-    BreadcrumbItem,
-    Project,
-    Task,
-    Message
-} from '@/types';
-import type {
-    AvailableUser,
-    ProjectFormData,
-} from '@/types/project';
-
+import type { AppUser, BreadcrumbItem, Project, Task, Message } from '@/types';
+import type { AvailableUser, ProjectFormData } from '@/types/project';
 
 // Props sent by ProjectController::show()
 type Props = {
@@ -56,25 +46,25 @@ function formatDate(date: string | null) {
 }
 
 // ------- ProjectShow (main page) -------
-export default function ProjectShow({ project, assignees, projectThread, availableUsers }: Props) {
+export default function ProjectShow({
+    project,
+    assignees,
+    projectThread,
+    availableUsers,
+}: Props) {
     const { isProjectManager } = useAuthUser();
     const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
     const [editOpen, setEditOpen] = useState(false);
 
-    const {
-        data,
-        setData,
-        patch,
-        processing,
-        errors,
-    } = useForm<ProjectFormData>({
-        name: project.name ?? '',
-        description: project.description ?? '',
-        start_date: project.start_date ?? '',
-        due_date: project.due_date ?? '',
-        member_ids: project.users.map((user) => user.id),
-    });
+    const { data, setData, patch, processing, errors } =
+        useForm<ProjectFormData>({
+            name: project.name ?? '',
+            description: project.description ?? '',
+            start_date: project.start_date ?? '',
+            due_date: project.due_date ?? '',
+            member_ids: project.users.map((user) => user.id),
+        });
 
     const {
         selectedTask,
@@ -154,7 +144,11 @@ export default function ProjectShow({ project, assignees, projectThread, availab
                         </p>
                     </div>
 
-                    <ThreadSection messages={projectThread} messageableType="project" messageableId={project.id} />
+                    <ThreadSection
+                        messages={projectThread}
+                        messageableType="project"
+                        messageableId={project.id}
+                    />
                 </div>
 
                 {/* ── Tasks ── */}
