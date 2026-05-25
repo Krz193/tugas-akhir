@@ -81,16 +81,14 @@ export default function ProjectShow({
         { title: project.name, href: `/projects/${project.id}` },
     ];
 
-    const [taskId] = useState(
-        () => new URLSearchParams(window.location.search).get('task'),
+    const [taskId] = useState(() =>
+        new URLSearchParams(window.location.search).get('task'),
     );
 
     useEffect(() => {
         if (!taskId) return;
 
-        const task = project.tasks.find(
-            (task) => task.id === Number(taskId),
-        );
+        const task = project.tasks.find((task) => task.id === Number(taskId));
 
         if (task) {
             openTaskThread(task);

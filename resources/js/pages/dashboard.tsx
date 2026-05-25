@@ -23,10 +23,7 @@ interface DashboardProps {
     recentActivities: RecentActivity[];
 }
 
-export default function Dashboard({
-    stats,
-    recentActivities,
-}: DashboardProps) {
+export default function Dashboard({ stats, recentActivities }: DashboardProps) {
     return (
         <AppLayout>
             <Head title="Dashboard" />

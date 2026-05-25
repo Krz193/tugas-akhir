@@ -6,7 +6,7 @@ export function useTaskThread() {
     const [taskMessages, setTaskMessages] = useState<Message[]>([]);
     const [taskSheetOpen, setTaskSheetOpenState] = useState(false);
     const [loadingTaskMessages, setLoadingTaskMessages] = useState(false);
-    
+
     const currentTaskIdRef = useRef<number | null>(null);
 
     const setTaskSheetOpen = (open: boolean) => {

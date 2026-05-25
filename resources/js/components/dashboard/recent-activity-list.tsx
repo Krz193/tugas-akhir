@@ -1,9 +1,5 @@
 import { Link } from '@inertiajs/react';
-import {
-    FolderKanban,
-    CheckSquare,
-    MessageSquare,
-} from 'lucide-react';
+import { FolderKanban, CheckSquare, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface RecentActivity {
@@ -22,7 +18,6 @@ interface RecentActivityListProps {
 export default function RecentActivityList({
     activities,
 }: RecentActivityListProps) {
-
     function formatRelativeDate(dateString: string): string {
         const date = new Date(dateString);
         const now = new Date();
@@ -78,13 +73,15 @@ export default function RecentActivityList({
                     ) : (
                         activities.map((activity, index) => (
                             <div
-                                key={activity.url ?? `${activity.type}-${index}`}
+                                key={
+                                    activity.url ?? `${activity.type}-${index}`
+                                }
                                 className="border-b pb-4 last:border-b-0 last:pb-0"
                             >
                                 <Link
-                                        href={activity.url ?? '#'}
-                                        className="block rounded-lg transition hover:bg-white/5"
-                                    >
+                                    href={activity.url ?? '#'}
+                                    className="block rounded-lg transition hover:bg-white/5"
+                                >
                                     <div className="flex items-start justify-between gap-4 p-3">
                                         <div className="flex items-start gap-4">
                                             {getActivityIcon(activity.type)}
@@ -107,7 +104,9 @@ export default function RecentActivityList({
                                         </div>
 
                                         <span className="shrink-0 text-sm text-muted-foreground">
-                                            {formatRelativeDate(activity.created_at)}
+                                            {formatRelativeDate(
+                                                activity.created_at,
+                                            )}
                                         </span>
                                     </div>
                                 </Link>
