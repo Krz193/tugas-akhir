@@ -1,8 +1,6 @@
-// pages/projects/show.tsx — Project detail page.
-// Shows the project info, its tasks, and its members.
-
 import { Head, useForm } from '@inertiajs/react';
 import { CalendarDays, Plus } from 'lucide-react';
+import { useEffect } from 'react';
 import { useState } from 'react';
 import ProjectForm from '@/components/projects/project-form';
 import { CreateTaskDialog } from '@/components/tasks/create-task-dialog';
@@ -82,6 +80,24 @@ export default function ProjectShow({
         { title: 'Projects', href: '/projects' },
         { title: project.name, href: `/projects/${project.id}` },
     ];
+
+    const [taskId] = useState(
+        () => new URLSearchParams(window.location.search).get('task'),
+    );
+
+    useEffect(() => {
+        if (!taskId) return;
+
+        const task = project.tasks.find(
+            (task) => task.id === Number(taskId),
+        );
+
+        if (task) {
+            openTaskThread(task);
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [taskId]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -263,7 +279,17 @@ export default function ProjectShow({
                 messages={taskMessages}
                 open={taskSheetOpen}
                 loading={loadingTaskMessages}
-                onOpenChange={setTaskSheetOpen}
+                onOpenChange={(open) => {
+                    setTaskSheetOpen(open);
+
+                    if (!open) {
+                        window.history.replaceState(
+                            {},
+                            '',
+                            `/projects/${project.id}`,
+                        );
+                    }
+                }}
                 onMessageSent={() => {
                     if (selectedTask) {
                         fetchTaskMessages(selectedTask.id);

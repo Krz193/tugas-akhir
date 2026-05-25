@@ -1,13 +1,26 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Message, Task } from '@/types';
 
 export function useTaskThread() {
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [taskMessages, setTaskMessages] = useState<Message[]>([]);
-    const [taskSheetOpen, setTaskSheetOpen] = useState(false);
+    const [taskSheetOpen, setTaskSheetOpenState] = useState(false);
     const [loadingTaskMessages, setLoadingTaskMessages] = useState(false);
+    
+    const currentTaskIdRef = useRef<number | null>(null);
+
+    const setTaskSheetOpen = (open: boolean) => {
+        setTaskSheetOpenState(open);
+
+        if (!open) {
+            setSelectedTask(null);
+            setTaskMessages([]);
+        }
+    };
 
     const fetchTaskMessages = async (taskId: number) => {
+        currentTaskIdRef.current = taskId;
+
         setLoadingTaskMessages(true);
 
         try {
@@ -19,13 +32,23 @@ export function useTaskThread() {
 
             const data = await response.json();
 
-            setTaskMessages(data.data);
+            if (currentTaskIdRef.current === taskId) {
+                setTaskMessages(data.data);
+            }
         } finally {
-            setLoadingTaskMessages(false);
+            if (currentTaskIdRef.current === taskId) {
+                setLoadingTaskMessages(false);
+            }
         }
     };
 
     const openTaskThread = async (task: Task) => {
+        window.history.replaceState(
+            {},
+            '',
+            `/projects/${task.project_id}?task=${task.id}`,
+        );
+
         setSelectedTask(task);
         setTaskSheetOpen(true);
 
