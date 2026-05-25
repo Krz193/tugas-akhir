@@ -1,6 +1,16 @@
 import { Head } from '@inertiajs/react';
 import DashboardStatCard from '@/components/dashboard/dashboard-stat-card';
+import RecentActivityList from '@/components/dashboard/recent-activity-list';
 import AppLayout from '@/layouts/app-layout';
+
+interface RecentActivity {
+    type: string;
+    title: string;
+    description: string;
+    context?: string | null;
+    url?: string | null;
+    created_at: string;
+}
 
 interface DashboardProps {
     stats: {
@@ -9,9 +19,14 @@ interface DashboardProps {
         pendingReviewTasksCount: number;
         overdueTasksCount: number;
     };
+
+    recentActivities: RecentActivity[];
 }
 
-export default function Dashboard({ stats }: DashboardProps) {
+export default function Dashboard({
+    stats,
+    recentActivities,
+}: DashboardProps) {
     return (
         <AppLayout>
             <Head title="Dashboard" />
@@ -52,6 +67,8 @@ export default function Dashboard({ stats }: DashboardProps) {
                         description="Tasks past due date"
                     />
                 </div>
+
+                <RecentActivityList activities={recentActivities} />
             </div>
         </AppLayout>
     );
