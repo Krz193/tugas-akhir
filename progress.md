@@ -1,6 +1,6 @@
 # Project Progress Snapshot
 
-Last updated: 2026-05-10 (Asia/Makassar)
+Last updated: 2026-05-25 (Asia/Makassar)
 Source of truth: [context.md](./context.md)
 
 ## Objective
@@ -95,7 +95,7 @@ Build Djitugo Project Management System prototype with:
 
 ### 13) Projects Index page (`/projects`)
 - `ProjectController::index()` → `Inertia::render('projects/index')`
-- `ProjectController::store()` → `redirect()->route('projects.index')`
+- `ProjectController::store()` → `redirect()->route('projects.show', $project)`
 - `ProjectController::destroy()` → `redirect()->route('projects.index')`
 - `pages/projects/index.tsx`:
   - Responsive card grid (1 → 2 → 3 columns)
@@ -114,55 +114,96 @@ Build Djitugo Project Management System prototype with:
 - `pages/projects/show.tsx`:
   - **Info header**: name, status badge, date range, creator, description
   - **Task list**:
-  - Colored task workflow states (`todo`, `in_progress`, `pending_review`, `done`)
-  - Members can request review through contextual "Request Review" action
-  - `pending_review` and `done` displayed as locked workflow badges for non-PM users
-  - title, assignee, due date, delete button (PM only), `window.confirm()` on delete
+    - Colored task workflow states (`todo`, `in_progress`, `pending_review`, `done`)
+    - Members can request review through contextual "Request Review" action
+    - `pending_review` and `done` displayed as locked workflow badges for non-PM users
+    - title, assignee, due date, delete button (PM only), `window.confirm()` on delete
   - **Add Task dialog** (PM only): title, description, assign to (dropdown), priority, start/due date
   - **Members grid**: avatar initials, name, role name
   - Project show page refactored into smaller reusable task/thread components
 
-### 15) Threaded Discussion UI — Project & Task Integration ✅
-- **Project-level thread** integrated into `pages/projects/show.tsx`:
-  - Displays project-wide messages with nested replies
-  - Eager-loaded from `ProjectController::show()` 
-  - Uses reusable `<ThreadSection>` component
-- **Task-level thread** integrated into task sheet modal:
-  - `<TaskThreadSheet>` component with lazy-loaded messages
-  - Opens on task click, displays nested replies
-  - Supports create reply, edit own, delete own (PM can delete any)
-  - Uses `useTaskThread()` hook for state management
-  - Task discussion messages fetched on-demand when sheet opens.
-  - Task thread state isolated from project page for maintainability
-- **Components** ready (`thread-section.tsx`, `message-card.tsx`, `task-thread-sheet.tsx`)
-  - Project & task threading, nesting validation, authorization, CRUD operations
-  - Task thread flow extracted into dedicated `TaskThreadSheet` component
-  - Task thread state centralized through reusable `useTaskThread()` hook
-  - `TaskRow` extracted into reusable task presentation component
-  - `CreateTaskDialog` separated from project show page
-  - Project show page refactored into smaller reusable task/thread components
+### 15) Threaded Discussion UI — Project & Task Integration
+- **Project-level thread** integrated into `pages/projects/show.tsx`
+- Uses reusable `<ThreadSection>` component
+- Displays project-wide threaded discussion with nested replies
+- Task-level discussion integrated into contextual sheet flow:
+  - `<TaskThreadSheet>` component
+  - lazy-loaded task messages
+  - nested replies
+  - edit/delete authorization support
+- `useTaskThread()` centralizes:
+  - selected task state
+  - lazy fetching
+  - task sheet state
+  - URL synchronization
+- Task thread deep-link flow implemented:
+  - `/projects/{project}?task={task}`
+  - auto-open on page load
+  - URL cleanup when sheet closes
+- `TaskRow`, `CreateTaskDialog`, and thread flow extracted into reusable components
+- Architecture intentionally keeps task discussion contextual to workspace flow instead of dedicated task detail pages
 
 ### 16) My Tasks page (`/my-tasks`)
 - `TaskController::myTasks()` → `Inertia::render('tasks/my-tasks')`
-- Frontend page: `pages/tasks/my-tasks.tsx` with task grouping by project
-- Filterable list with status & project filters, pagination (default 15 per page)
-- Inline status update (via `TaskRow` component)
-- Task thread integration (lazy-loaded `TaskThreadSheet`)
+- Frontend page: `pages/tasks/my-tasks.tsx`
+- Backend supports:
+  - status filters
+  - project filters
+  - pagination
+- Frontend includes:
+  - grouped task list by project
+  - project filter dropdown
+  - pagination controls
+  - inline status updates
+  - task thread integration via reusable `TaskThreadSheet`
 - Sorted by due date (null last)
-- Feature tests: `MyTaskEndpointTest` (3 tests, all passing)
+- Feature tests: `MyTaskEndpointTest`
 
-### 17) Division-based project creation
-- Database: `projects.division_id` nullable FK to divisions (migration: `2026_05_12_000001_add_division_id_to_projects_table`)
-- Backend logic:
-  - `StoreProjectRequest` validates `division_id`
-  - `ProjectController::store()` automatically adds all division members to project when `division_id` is specified
-  - Creator is excluded from auto-assignment
-- Frontend enhancement:
-  - Create Project dialog adds division selector (optional field)
-  - Member selection now labeled "Add Additional Members" and is optional
-  - Info message displays when division selected: "All division members will be automatically added to this project"
-  - `ProjectController::index()` passes divisions list to frontend
-- Benefit: Streamlines project setup by auto-populating team members from selected division
+### 17) Reports pages (`/reports/*`)
+- `ReportingController::timeline()` → `Inertia::render('reports/timeline')`
+- `ReportingController::calendar()` → `Inertia::render('reports/calendar')`
+- `ReportingController::performance()` → `Inertia::render('reports/performance')`
+- Frontend pages:
+  - `pages/reports/timeline.tsx`
+  - `pages/reports/calendar.tsx`
+  - `pages/reports/performance.tsx`
+- Reports scoped to accessible projects:
+  - PM sees all
+  - non-PM scoped to joined/created projects
+- Timeline supports:
+  - `project_id`
+  - `status`
+  - `start_date`
+  - `end_date`
+- Calendar supports:
+  - `project_id`
+  - `month`
+- Performance supports:
+  - `project_id`
+- `pending_review` integrated into metrics/report filtering
+- `ReportingContractTest` updated for Inertia responses
+
+### 18) Dashboard page (`/dashboard`)
+- `DashboardController::index()` → `Inertia::render('dashboard')`
+- Dashboard statistics scoped to accessible projects/tasks
+- Dashboard cards implemented:
+  - accessible projects count
+  - assigned tasks count
+  - pending review count
+  - overdue task count
+- Recent activity feed implemented:
+  - project updates
+  - task updates
+  - thread/message activity
+- Activities merged and sorted by latest timestamp
+- Activity items support:
+  - contextual labels
+  - relative timestamps
+  - clickable navigation
+  - activity icons by type
+- Dashboard task activities support contextual deep-link flow:
+  `/projects/{project}?task={task}`
+- Dashboard intentionally follows lightweight workspace-oriented design rather than analytics-heavy reporting UI
 
 ---
 
@@ -175,101 +216,111 @@ Build Djitugo Project Management System prototype with:
 
 Ordered by priority relative to context.md scope:
 
-### � Priority 1 — Reports pages
-| Page | Route | Backend | Frontend | Tests |
-|---|---|---|---|---|
-| Timeline | `/reports/timeline` | ✅ Ready | ❌ Missing | ✅ Written |
-| Calendar | `/reports/calendar` | ✅ Ready | ❌ Missing | ✅ Written |
-| Performance | `/reports/performance` | ✅ Ready | ❌ Missing | ✅ Written |
+### Priority 1 — Approval/review workflow refinement
+- Expand approval/rejection interaction inside `TaskThreadSheet`
+- Refine PM review flow for `pending_review` tasks
+- Keep workflow embedded inside existing task thread architecture
 
-- All 3 reporting endpoints fully implemented and tested (bug fix: added `pending_review` to timeline & performance metrics)
-- Need to create: `pages/reports/timeline.tsx`, `pages/reports/calendar.tsx`, `pages/reports/performance.tsx`
+### Priority 2 — Polish and cleanup
+- Continue UX polish and frontend refinement
+- Improve loading states and empty states
+- Small responsive layout refinements
+- Optional optimistic UI improvements
 
-### 🟡 Priority 2 — Dashboard completion
-- Currently placeholder-only (`pages/dashboard.tsx`)
-- Recommend simple widget layout: project count, task count, recent activity
-- Defer complex metrics to final polish phase if timeline is tight
-
-### ⚪ Deferred (nice-to-have, not core scope)
-- Edit project form (currently no frontend for `PATCH /projects/{project}`)
-- Add/remove member UI on project show page (backend exists, no frontend)
-- Task detail page (currently no `show` page for individual tasks)
+### Deferred (nice-to-have, not core scope)
+- Division-based project creation with division selector and auto-add of division members
+- Add/remove member UI on project show page (backend exists, frontend not implemented)
 
 ---
 
 ## Decisions Locked
-- Task statuses are fixed to: `todo`, `in_progress`, `pending_review`, `done`.
-- BD cannot create tasks.
-- Only PM can delete other users' messages.
-- PM rule is soft: at most one active PM. Transfer via dedicated endpoint only.
-- `store()` / `destroy()` → `redirect()` after mutation (Inertia page flow).
-- `updateStatus()` → `redirect()->back()` (Inertia page flow).
-- Polymorphic message schema is final — no nullable `project_id/task_id`.
-- Task-level discussion uses Sheet/Drawer instead of dedicated task detail page.
-- Project thread is eager-loaded; task thread is lazy-loaded.
-- Thread UI intentionally limits visible nesting depth to 1 level.
-- If activity indicators are added later, they should remain lightweight and localStorage-based rather than implementing synchronized unread tracking.
-- Future activity indicators should prefer subtle dot/new-state indicators over numeric unread badges.
-- Shared UI logic should prioritize reusable presentational components (e.g. `ThreadSection`) over complex state-heavy abstractions.
-- Components should remain beginner-friendly and avoid unnecessary architectural complexity.
-- Existing frontend patterns should remain consistent: `useForm`, `router.patch/delete`, role checks via `useAuthUser`,and Tailwind/native form controls.
-- Avoid introducing websocket, polling, realtime sync, or enterprise-style notification systems within TA prototype scope.
-- Task discussion should remain contextually attached to the task list flow, not expanded into a separate task management module.
-- Prefer local component state and prop passing over global state management libraries.
+- Task statuses are fixed to: `todo`, `in_progress`, `pending_review`, `done`
+- BD cannot create tasks
+- Only PM can delete other users' messages
+- PM rule is soft: at most one active PM. Transfer via dedicated endpoint only
+- `store()` / `destroy()` → redirect-based Inertia flow
+- `updateStatus()` → `redirect()->back()`
+- Polymorphic message schema is final
+- Project thread is eager-loaded; task thread is lazy-loaded
+- Thread UI intentionally limits visible nesting depth to 1 level
+- Dashboard direction is activity-centric instead of analytics-centric
+- Project page acts as the primary collaborative workspace
+- Task discussion remains contextual to workspace flow instead of standalone detail pages
+- Task thread routing uses contextual deep-link pattern:
+  `/projects/{project}?task={task}`
+- Future activity indicators should remain lightweight and localStorage-based
+- Avoid websocket, realtime sync, polling, or enterprise notification systems within TA scope
+- Shared UI logic should prioritize reusable presentational components over complex abstractions
+- Existing frontend patterns should remain:
+  - `useForm`
+  - `router.patch/delete`
+  - Tailwind/native controls
+  - `useAuthUser()` role checks
+- Prefer local component state and prop passing over global state libraries
 
-- Planned task workflow refinement:
-  - PM can create tasks and assign them to Team Leads or members.
-  - Team Leads may directly complete tasks they own/manage.
-  - Regular members cannot directly set tasks to `done`; they must request approval first.
-  - Task proof/revision discussion should happen through the existing task thread system instead of dedicated proof upload forms.
-  - Approval/rejection actions should remain embedded inside the task sheet flow (`TaskThreadSheet`).
-  - `TaskThreadSheet` should become the centralized interaction surface for task discussion and approval flow across both Project Show and My Tasks pages.
+- Planned workflow refinement:
+  - PM can create and assign tasks
+  - Team Leads may directly complete owned/managed tasks
+  - Regular members must request approval before completion
+  - Proof/revision discussion remains inside task thread flow
+  - Approval/rejection interactions remain embedded in `TaskThreadSheet`
 
 ---
 
 ## Known Issues / Risks
-1. **Role seed dependency** — PM transfer expects `roles.slug = project-manager`. Seed first.
-2. **Authorization helper** — Base `Controller` has no `AuthorizesRequests`. Use `Gate::authorize()`.
-3. **Thread performance** — Deep nested replies can be expensive without pagination (future concern).
-4. **Wayfinder route generation** — `resources/js/routes/index.ts` auto-generates on `npm run dev`.
-   Currently new app routes use plain string hrefs (e.g. `'/projects'`) instead of named helpers.
-5. **Activity indicators are browser-local only.**
-   Clearing browser storage or switching device resets seen state.
-   Acceptable within TA prototype scope.
+1. **Role seed dependency**
+   PM transfer expects `roles.slug = project-manager`
+
+2. **Authorization helper**
+   Base `Controller` has no `AuthorizesRequests`
+   Use `Gate::authorize()`
+
+3. **Thread performance**
+   Deep nested replies may become expensive without pagination
+
+4. **Wayfinder route generation**
+   `resources/js/routes/index.ts` auto-generates on `npm run dev`
+
+5. **Activity indicators are browser-local only**
+   Clearing local storage resets seen state
+   Acceptable within TA prototype scope
 
 ---
 
-### Minor refinement backlog
+## Minor refinement backlog
 - Thread activity indicator polish
-- Empty/loading state refinement
-- Small responsive UI adjustments
-- Optional optimistic UI improvements
-- Approval/rejection action refinement inside `TaskThreadSheet`
-- My Tasks integration with reusable `TaskThreadSheet`
+- Loading/empty state refinement
+- Small responsive adjustments
+- Approval/rejection interaction refinement inside `TaskThreadSheet`
+- Further reuse of `TaskThreadSheet` across task-centric flows
 
 ---
 
 ## Notes For Future Agent Sessions
-- Read `context.md` first, then this file.
-- API docs: `api-contract.md`. Endpoint mapping: `backend-endpoint-guide.md`.
-- **Login accounts:** see section 11 above. Password is always `password`.
-- **Frontend dev:** `npm run dev` must be running alongside Laragon.
-- **Converting a controller to Inertia:**
-  - `index()` / `show()` → `Inertia::render('page/path', [data])`
-  - `store()` / `update()` / `destroy()` / `updateStatus()` → `redirect()->back()` or `redirect()->route(...)`
-  - Update the feature test assertion from `assertCreated/assertNoContent/assertOk` to `assertRedirect()`
-- **Frontend patterns established:**
-  - Role checks: `useAuthUser()` hook — never read `auth.user.role.slug` directly
-  - Forms: `useForm` from Inertia — handles loading, errors, reset
-  - Mutations: `router.patch()` / `router.delete()` from Inertia for non-form actions
-  - All types: `resources/js/types/models.ts`, importable via `@/types`
-  - Native `<select>` styled with Tailwind used for inline dropdowns (no Radix Select needed)
-  - `window.confirm()` used for delete confirmation (simple, beginner-friendly)
-- **Scope guard:** Keep within TA prototype scope. No super-admin, no enterprise features.
-  context.md section 9 warns: "Jangan sederhanakan sistem jadi CRUD biasa" —
-  make sure discussion/collaboration features are not skipped.
+- Read `context.md` first, then this file
+- API docs: `api-contract.md`
+- Endpoint mapping: `backend-endpoint-guide.md`
+- Password for all seeded accounts: `password`
+- `npm run dev` must run alongside Laragon
+
+### Frontend patterns established
+- Role checks via `useAuthUser()`
+- Forms via Inertia `useForm`
+- Non-form mutations via `router.patch/delete`
+- Shared types from `@/types`
+- Native `<select>` with Tailwind styling preferred
+- `window.confirm()` used for lightweight delete confirmation
+
+### Scope guard
+- Keep within TA prototype scope
+- No enterprise workflow expansion
+- No super-admin system
+- Do not reduce collaboration/thread system into plain CRUD
+
+---
 
 ## Suggested Commit Scopes
+
 ### Backend (done)
 1. `feat(project): implement project + member management endpoints`
 2. `feat(task): implement task CRUD and status flow`
@@ -285,10 +336,12 @@ Ordered by priority relative to context.md scope:
 10. `feat(seed): add seeders and update UserFactory`
 11. `feat(projects): projects index page with create dialog`
 12. `feat(projects): project show page with task list and members`
-13. `test(messages): comprehensive message thread tests (14 tests covering CRUD, nesting, auth)`
+13. `test(messages): comprehensive message thread tests`
 14. `feat(thread): integrate discussion thread into project and task contexts`
-
-### Frontend (next to implement)
-15. `feat(my-tasks): my tasks page with filters and inline status update`
+15. `feat(my-tasks): my tasks page with grouped task list and task thread access`
 16. `feat(reports): timeline, calendar, and performance report pages`
-17. `polish(dashboard): update dashboard with project/task summaries`
+17. `feat(dashboard): implement activity-centric dashboard with contextual navigation`
+
+### Frontend (future)
+18. `feat(task-review): refine approval and rejection interaction flow`
+19. `polish(ui): improve loading, activity, and responsive states`
