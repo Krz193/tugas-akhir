@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Task;
 
+use App\Models\Employee;
 use App\Models\Task;
-use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,28 +25,27 @@ class UpdateTaskRequest extends FormRequest
         return [
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
-            'assigned_to' => [
+            'assigned_employee_id' => [
                 'sometimes',
                 'nullable',
                 'integer',
-                Rule::exists(User::class, 'id'),
+                Rule::exists(Employee::class, 'id'),
                 function (string $attribute, mixed $value, \Closure $fail) use ($task): void {
                     if ($value === null) {
                         return;
                     }
 
-                    $allowed = (int) $value === (int) $task->project->created_by
-                        || $task->project->users()->whereKey((int) $value)->exists();
+                    $allowed = $task->project->members()
+                        ->where('employee_id', (int) $value)
+                        ->exists();
 
                     if (! $allowed) {
-                        $fail('The selected assignee must be the project creator or a project member.');
+                        $fail('The selected assignee must be a project member.');
                     }
                 },
             ],
-            'priority' => ['sometimes', 'required', 'in:low,medium,high'],
             'start_date' => ['sometimes', 'nullable', 'date'],
             'due_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:start_date'],
-            'position' => ['sometimes', 'required', 'integer', 'min:0'],
         ];
     }
 }

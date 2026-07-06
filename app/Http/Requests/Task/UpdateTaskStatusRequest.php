@@ -18,40 +18,7 @@ class UpdateTaskStatusRequest extends FormRequest
             return false;
         }
 
-        // PM bypass
-        if ($user->isProjectManager()) {
-            return true;
-        }
-
-        // hanya assignee boleh update
-        if ($task->assigned_to !== $user->id) {
-            return false;
-        }
-
-        $nextStatus = $this->input('status');
-
-        // final states terkunci
-        if (in_array($task->status, ['pending_review', 'done'])) {
-            return false;
-        }
-
-        // todo -> in_progress
-        if (
-            $task->status === 'todo'
-            && $nextStatus === 'in_progress'
-        ) {
-            return true;
-        }
-
-        // in_progress -> pending_review
-        if (
-            $task->status === 'in_progress'
-            && $nextStatus === 'pending_review'
-        ) {
-            return true;
-        }
-
-        return false;
+        return $user->can('updateStatus', $task);
     }
 
     public function rules(): array

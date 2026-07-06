@@ -8,71 +8,72 @@ use App\Models\User;
 
 class TaskPolicy
 {
-    /** Determine whether the user can list tasks from projects they belong to. */
+    private function isPm(User $user): bool
+    {
+        return $user->employee?->role?->slug === 'project-manager';
+    }
+
+    private function isProjectMember(User $user, Project $project): bool
+    {
+        $employeeId = $user->employee?->id;
+
+        if ($employeeId === null) {
+            return false;
+        }
+
+        return $project->members()->where('employee_id', $employeeId)->exists();
+    }
+
+    /** User login boleh membuka daftar task. */
     public function viewAny(User $user): bool
     {
-        return $user->projects()->exists() || $user->managedProjects()->exists();
+        return true;
     }
 
-    /** Determine whether the user can view a task in its project context. */
+    /** PM melihat semua task. User lain harus menjadi anggota project. */
     public function view(User $user, Task $task): bool
     {
-        return $user->isProjectMember($task->project);
+        return $this->isPm($user) || $this->isProjectMember($user, $task->project);
     }
 
-    /** Determine whether the user can create a task globally or within a specific project. */
+    /** Hanya PM yang boleh membuat task. */
     public function create(User $user, ?Project $project = null): bool
     {
-        if ($project === null) {
-            return $user->isProjectManager();
-        }
-
-        return $user->isProjectMember($project) && ($project->created_by === $user->id || $user->isProjectManager());
+        return $this->isPm($user);
     }
 
-    /** Determine whether the user can update task details. */
+    /** Hanya PM yang boleh mengubah detail task. */
     public function update(User $user, Task $task): bool
     {
-        if (! $user->isProjectMember($task->project)) {
-            return false;
-        }
-
-        return $task->project->created_by === $user->id
-            || $task->created_by === $user->id
-            || $task->assigned_to === $user->id
-            || $user->isProjectManager();
+        return $this->isPm($user);
     }
 
-    /** Determine whether the user can delete a task. */
+    /** Hanya PM yang boleh menghapus task. */
     public function delete(User $user, Task $task): bool
     {
-        return $user->isProjectMember($task->project)
-            && ($task->project->created_by === $user->id || $user->isProjectManager());
+        return $this->isPm($user);
     }
 
-    /** Determine whether the user can restore a task. */
     public function restore(User $user, Task $task): bool
     {
-        return $user->isProjectMember($task->project)
-            && ($task->project->created_by === $user->id || $user->isProjectManager());
+        return $this->isPm($user);
     }
 
-    /** Determine whether the user can permanently delete a task. */
     public function forceDelete(User $user, Task $task): bool
     {
-        return $user->isProjectMember($task->project)
-            && ($task->project->created_by === $user->id || $user->isProjectManager());
+        return $this->isPm($user);
     }
 
-    /** Determine whether the user can update a task status. */
+    /** PM dapat mengubah semua status. Assignee hanya task miliknya. */
     public function updateStatus(User $user, Task $task): bool
     {
-        if (! $user->isProjectMember($task->project)) {
-            return false;
+        if ($this->isPm($user)) {
+            return true;
         }
 
-        return $task->assigned_to === $user->id
-            || $task->project->created_by === $user->id
-            || $user->isProjectManager();
+        $employeeId = $user->employee?->id;
+
+        return $employeeId !== null
+            && (int) $task->assigned_employee_id === (int) $employeeId;
     }
 }

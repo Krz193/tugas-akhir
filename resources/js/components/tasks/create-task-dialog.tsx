@@ -14,11 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 
-import type { AppUser } from '@/types';
+import type { Employee } from '@/types';
 
 type CreateTaskDialogProps = {
     projectId: number;
-    assignees: AppUser[];
+    assignees: Employee[];
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
@@ -32,8 +32,7 @@ export function CreateTaskDialog({
     const { data, setData, post, processing, errors, reset } = useForm({
         title: '',
         description: '',
-        assigned_to: '',
-        priority: 'medium',
+        assigned_employee_id: '',
         start_date: '',
         due_date: '',
     });
@@ -56,7 +55,7 @@ export function CreateTaskDialog({
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    {/* Title */}
+                    {/* Judul task */}
                     <div className="flex flex-col gap-1.5">
                         <Label htmlFor="title">
                             Title <span className="text-destructive">*</span>
@@ -71,7 +70,7 @@ export function CreateTaskDialog({
                         <InputError message={errors.title} />
                     </div>
 
-                    {/* Description */}
+                    {/* Deskripsi task */}
                     <div className="flex flex-col gap-1.5">
                         <Label htmlFor="task-description">Description</Label>
                         <textarea
@@ -88,49 +87,28 @@ export function CreateTaskDialog({
                         <InputError message={errors.description} />
                     </div>
 
-                    {/* Assign to + Priority side by side */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="assigned_to">Assign To</Label>
-                            <select
-                                id="assigned_to"
-                                value={data.assigned_to}
-                                onChange={(e) =>
-                                    setData('assigned_to', e.target.value)
-                                }
-                                disabled={processing}
-                                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="">Unassigned</option>
-                                {assignees.map((u) => (
-                                    <option key={u.id} value={u.id}>
-                                        {u.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <InputError message={errors.assigned_to} />
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="priority">Priority</Label>
-                            <select
-                                id="priority"
-                                value={data.priority}
-                                onChange={(e) =>
-                                    setData('priority', e.target.value)
-                                }
-                                disabled={processing}
-                                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                            </select>
-                            <InputError message={errors.priority} />
-                        </div>
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="assigned_employee_id">Assign To</Label>
+                        <select
+                            id="assigned_employee_id"
+                            value={data.assigned_employee_id}
+                            onChange={(e) =>
+                                setData('assigned_employee_id', e.target.value)
+                            }
+                            disabled={processing}
+                            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <option value="">Unassigned</option>
+                            {assignees.map((employee) => (
+                                <option key={employee.id} value={employee.id}>
+                                    {employee.name}
+                                </option>
+                            ))}
+                        </select>
+                        <InputError message={errors.assigned_employee_id} />
                     </div>
 
-                    {/* Dates side by side */}
+                    {/* Tanggal task */}
                     <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1.5">
                             <Label htmlFor="task-start">Start Date</Label>

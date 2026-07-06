@@ -13,11 +13,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class TaskController extends Controller
 {
-    /** List tasks assigned to current user with optional filters. */
-    public function myTasks(Request $request)
+    /** Menampilkan task milik user dengan filter. */
+    public function myTasks(Request $request): Response
     {
         $validated = Validator::make($request->query(), [
             'status' => ['nullable', 'in:todo,in_progress,pending_review,done'],
@@ -26,32 +27,40 @@ class TaskController extends Controller
         ])->validate();
 
         $perPage = (int) ($validated['per_page'] ?? 25);
+        $employeeId = $request->user()->employee?->id;
 
-        $tasks = Task::query()
-            ->with(['project:id,name,status', 'creator:id,name,email', 'assignee:id,name,email'])
-            ->where('assigned_to', $request->user()->id)
-            ->when(
-                isset($validated['status']),
-                fn ($query) => $query->where('status', $validated['status'])
-            )
-            ->when(
-                isset($validated['project_id']),
-                fn ($query) => $query->where('project_id', (int) $validated['project_id'])
-            )
+        $tasksQuery = Task::query()
+            ->with(['project:id,name,status', 'assignee.role', 'assignee.division']);
+
+        $projectsQuery = Project::query();
+
+        if ($employeeId === null) {
+            $tasksQuery->whereKey([]);
+            $projectsQuery->whereKey([]);
+        } else {
+            $tasksQuery->where('assigned_employee_id', $employeeId);
+            $projectsQuery->whereHas(
+                'tasks',
+                fn ($taskQuery) => $taskQuery->where('assigned_employee_id', $employeeId)
+            );
+        }
+
+        if (isset($validated['status'])) {
+            $tasksQuery->where('status', $validated['status']);
+        }
+
+        if (isset($validated['project_id'])) {
+            $tasksQuery->where('project_id', (int) $validated['project_id']);
+        }
+
+        $tasks = $tasksQuery
             ->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END')
             ->orderBy('due_date')
             ->orderBy('id')
             ->paginate($perPage)
             ->withQueryString();
 
-        $userId = $request->user()->id;
-
-        // Fetch projects the user is assigned to or created, use whereHas to avoid manual joins
-        $projects = Project::query()
-            ->where(function ($query) use ($userId) {
-                $query->whereHas('users', fn ($q) => $q->where('users.id', $userId))
-                ->orWhere('created_by', $userId);
-            })
+        $projects = $projectsQuery
             ->orderBy('name')
             ->get(['id', 'name']);
 
@@ -61,46 +70,47 @@ class TaskController extends Controller
         ]);
     }
 
-    /** List tasks for a project accessible by current user. */
+    /** Menampilkan task dalam project yang dapat diakses. */
     public function index(Project $project): JsonResponse
     {
         Gate::authorize('view', $project);
 
         $tasks = $project->tasks()
-            ->with(['assignee:id,name,email', 'creator:id,name,email'])
-            ->orderBy('position')
+            ->with(['assignee.role', 'assignee.division'])
             ->orderBy('id')
             ->get();
 
         return response()->json(['data' => $tasks]);
     }
 
-    /** Create task under project and redirect back to the project show page. */
+    /** Membuat task dalam project. */
     public function store(StoreTaskRequest $request, Project $project): RedirectResponse
     {
         Task::query()->create([
             ...$request->validated(),
             'project_id' => $project->id,
-            'created_by' => $request->user()->id,
             'status' => 'todo',
-            'priority' => $request->validated('priority') ?? 'medium',
-            'position' => $request->validated('position') ?? 0,
         ]);
 
         return redirect()->back();
     }
 
-    /** Show single task. */
+    /** Menampilkan detail task. */
     public function show(Task $task): JsonResponse
     {
         Gate::authorize('view', $task);
 
-        $task->load(['project:id,name,created_by', 'assignee:id,name,email', 'creator:id,name,email']);
+        $task->load([
+            'project:id,name,status,start_date,due_date',
+            'assignee.role',
+            'assignee.division',
+            'thread.messages.sender',
+        ]);
 
         return response()->json(['data' => $task]);
     }
 
-    /** Update task fields except status. */
+    /** Mengubah data task selain status. */
     public function update(UpdateTaskRequest $request, Task $task): JsonResponse
     {
         $task->fill($request->validated());
@@ -109,20 +119,19 @@ class TaskController extends Controller
         return response()->json(['data' => $task->fresh()]);
     }
 
-    /** Update task status and redirect back to wherever the request came from. */
+    /** Mengubah status task. */
     public function updateStatus(UpdateTaskStatusRequest $request, Task $task): RedirectResponse
     {
         $status = $request->validated('status');
 
-        $task->forceFill([
+        $task->update([
             'status' => $status,
-            'completed_at' => $status === 'done' ? now() : null,
-        ])->save();
+        ]);
 
         return redirect()->back();
     }
 
-    /** Delete task and redirect back to the project show page. */
+    /** Menghapus task. */
     public function destroy(Task $task): RedirectResponse
     {
         Gate::authorize('delete', $task);

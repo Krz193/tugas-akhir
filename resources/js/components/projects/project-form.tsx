@@ -3,14 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import type { AvailableUser, ProjectFormData } from '@/types/project';
+import type { AvailableEmployee, ProjectFormData } from '@/types/project';
 
 type Props = {
     data: ProjectFormData;
     setData: (key: keyof ProjectFormData, value: string | number[]) => void;
     errors: Record<string, string>;
     processing: boolean;
-    availableUsers: AvailableUser[];
+    availableEmployees: AvailableEmployee[];
     submitLabel: string;
 };
 
@@ -19,22 +19,22 @@ export default function ProjectForm({
     setData,
     errors,
     processing,
-    availableUsers,
+    availableEmployees,
     submitLabel,
 }: Props) {
-    const groupedUsers = availableUsers.reduce(
-        (groups, user) => {
-            const divisionName = user.division?.name ?? 'No Division';
+    const groupedEmployees = availableEmployees.reduce(
+        (groups, employee) => {
+            const divisionName = employee.division?.name ?? 'No Division';
 
             if (!groups[divisionName]) {
                 groups[divisionName] = [];
             }
 
-            groups[divisionName].push(user);
+            groups[divisionName].push(employee);
 
             return groups;
         },
-        {} as Record<string, AvailableUser[]>,
+        {} as Record<string, AvailableEmployee[]>,
     );
 
     return (
@@ -105,29 +105,29 @@ export default function ProjectForm({
                 <Label>Project Members</Label>
 
                 <div className="max-h-48 space-y-4 overflow-y-auto rounded-md border p-3">
-                    {Object.entries(groupedUsers).map(
-                        ([divisionName, users]) => (
+                    {Object.entries(groupedEmployees).map(
+                        ([divisionName, employees]) => (
                             <div key={divisionName} className="space-y-2">
                                 <p className="text-sm font-medium text-muted-foreground">
                                     {divisionName}
                                 </p>
 
                                 <div className="space-y-2 pl-2">
-                                    {users.map((user) => (
+                                    {employees.map((employee) => (
                                         <label
-                                            key={user.id}
+                                            key={employee.id}
                                             className="flex items-center gap-2 text-sm"
                                         >
                                             <input
                                                 type="checkbox"
                                                 checked={data.member_ids.includes(
-                                                    user.id,
+                                                    employee.id,
                                                 )}
                                                 onChange={(e) => {
                                                     if (e.target.checked) {
                                                         setData('member_ids', [
                                                             ...data.member_ids,
-                                                            user.id,
+                                                            employee.id,
                                                         ]);
                                                     } else {
                                                         setData(
@@ -135,14 +135,14 @@ export default function ProjectForm({
                                                             data.member_ids.filter(
                                                                 (id) =>
                                                                     id !==
-                                                                    user.id,
+                                                                    employee.id,
                                                             ),
                                                         );
                                                     }
                                                 }}
                                             />
 
-                                            <span>{user.name}</span>
+                                            <span>{employee.name}</span>
                                         </label>
                                     ))}
                                 </div>

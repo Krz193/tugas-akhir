@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Project;
 
+use App\Models\Employee;
 use App\Models\Project;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateProjectRequest extends FormRequest
 {
@@ -24,7 +26,7 @@ class UpdateProjectRequest extends FormRequest
             'start_date' => ['sometimes', 'nullable', 'date'],
             'due_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:start_date'],
             'member_ids' => ['nullable', 'array'],
-            'member_ids.*' => ['exists:users,id'],
+            'member_ids.*' => ['integer', Rule::exists(Employee::class, 'id')],
         ];
     }
 }

@@ -9,12 +9,24 @@ use Symfony\Component\HttpFoundation\Response;
 
 class TaskAccess
 {
-    /** Ensure the authenticated user can access the task route parameter via project membership. */
+    /** Memastikan user boleh membuka task ini. */
     public function handle(Request $request, Closure $next, string $parameter = 'task'): Response
     {
         $task = $request->route($parameter);
+        $user = $request->user();
 
-        if (! $task instanceof Task || ! $request->user()?->isProjectMember($task->project)) {
+        if (! $task instanceof Task) {
+            abort(403);
+        }
+
+        if ($user?->employee?->role?->slug === 'project-manager') {
+            return $next($request);
+        }
+
+        $employeeId = $user?->employee?->id;
+        $project    = $task->project;
+
+        if ($employeeId === null || $project === null || ! $project->members()->where('employee_id', $employeeId)->exists()) {
             abort(403);
         }
 

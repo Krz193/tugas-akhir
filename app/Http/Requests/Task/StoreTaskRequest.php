@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Task;
 
+use App\Models\Employee;
 use App\Models\Project;
 use App\Models\Task;
-use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,27 +26,26 @@ class StoreTaskRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'assigned_to' => [
+            'assigned_employee_id' => [
                 'nullable',
                 'integer',
-                Rule::exists(User::class, 'id'),
+                Rule::exists(Employee::class, 'id'),
                 function (string $attribute, mixed $value, \Closure $fail) use ($project): void {
                     if ($value === null) {
                         return;
                     }
 
-                    $allowed = (int) $value === (int) $project->created_by
-                        || $project->users()->whereKey((int) $value)->exists();
+                    $allowed = $project->members()
+                        ->where('employee_id', (int) $value)
+                        ->exists();
 
                     if (! $allowed) {
-                        $fail('The selected assignee must be the project creator or a project member.');
+                        $fail('The selected assignee must be a project member.');
                     }
                 },
             ],
-            'priority' => ['nullable', 'in:low,medium,high'],
             'start_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-            'position' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

@@ -1,59 +1,46 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Pencil, Trash2 } from 'lucide-react';
-import type { Message } from '@/types/models';
+import { useState } from 'react';
+import type { Message, ProjectMessage, SharedData } from '@/types';
 
 type MessageCardProps = {
-    message: Message;
-    authUserId: number;
-    url: string;
-    replyingTo: number | null;
-    setReplyingTo: (id: number | null) => void;
-    replyBody: string;
-    setReplyBody: (value: string) => void;
-    editingMessageId: number | null;
-    setEditingMessageId: (id: number | null) => void;
-    editingBody: string;
-    setEditingBody: (value: string) => void;
-    errors: Record<string, string>;
-    processing: boolean;
+    message: Message | ProjectMessage;
+    canManageMessages: boolean;
     onMessageSent?: () => void;
 };
 
 export function MessageCard({
     message,
-    authUserId,
-    url,
-    replyingTo,
-    setReplyingTo,
-    replyBody,
-    setReplyBody,
-    editingMessageId,
-    setEditingMessageId,
-    editingBody,
-    setEditingBody,
-    errors,
-    processing,
+    canManageMessages,
     onMessageSent,
 }: MessageCardProps) {
+    const { auth } = usePage<SharedData>().props;
+    const [isEditing, setIsEditing] = useState(false);
+    const [editingBody, setEditingBody] = useState(message.message_body);
+
+    const authEmployeeId = auth.user.employee?.id;
+    const canEditThisMessage =
+        canManageMessages && authEmployeeId === message.sender_id;
+    const senderName = message.sender?.name ?? 'Unknown sender';
+
     return (
         <div key={message.id} className="rounded-lg border p-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <p className="font-medium">{message.author.name}</p>
+                    <p className="font-medium">{senderName}</p>
 
                     <p className="text-xs text-muted-foreground">
                         {new Date(message.created_at).toLocaleString()}
                     </p>
                 </div>
 
-                {message.user_id === authUserId && (
+                {canEditThisMessage && (
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
                             onClick={() => {
-                                console.log(message.id);
-                                setEditingMessageId(message.id);
-                                setEditingBody(message.body);
+                                setIsEditing(true);
+                                setEditingBody(message.message_body);
                             }}
                             className="transition-opacity hover:opacity-70"
                         >
@@ -82,7 +69,7 @@ export function MessageCard({
                 )}
             </div>
 
-            {editingMessageId === message.id ? (
+            {isEditing ? (
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
@@ -90,12 +77,12 @@ export function MessageCard({
                         router.patch(
                             `/messages/${message.id}`,
                             {
-                                body: editingBody,
+                                message_body: editingBody,
                             },
                             {
                                 preserveScroll: true,
                                 onSuccess: () => {
-                                    setEditingMessageId(null);
+                                    setIsEditing(false);
                                     setEditingBody('');
                                     onMessageSent?.();
                                 },
@@ -114,8 +101,8 @@ export function MessageCard({
                         <button
                             type="button"
                             onClick={() => {
-                                setEditingMessageId(null);
-                                setEditingBody('');
+                                setIsEditing(false);
+                                setEditingBody(message.message_body);
                             }}
                             className="rounded-md border px-3 py-2 text-sm"
                         >
@@ -133,107 +120,8 @@ export function MessageCard({
                 </form>
             ) : (
                 <p className="mt-3 text-sm whitespace-pre-wrap">
-                    {message.body}
+                    {message.message_body}
                 </p>
-            )}
-
-            {/* reply system */}
-            <div className="mt-3">
-                <button
-                    type="button"
-                    onClick={() =>
-                        setReplyingTo(
-                            replyingTo === message.id ? null : message.id,
-                        )
-                    }
-                    className="text-sm text-muted-foreground hover:underline"
-                >
-                    Reply
-                </button>
-            </div>
-            {replyingTo === message.id && (
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-
-                        router.post(
-                            url,
-                            {
-                                body: replyBody,
-                                parent_id: message.id,
-                            },
-                            {
-                                preserveScroll: true,
-                                onSuccess: () => {
-                                    setReplyBody('');
-                                    setReplyingTo(null);
-                                    onMessageSent?.();
-                                },
-                            },
-                        );
-                    }}
-                    className="mt-3 space-y-3"
-                >
-                    <textarea
-                        value={replyBody}
-                        onChange={(e) => setReplyBody(e.target.value)}
-                        placeholder="Write a reply..."
-                        className="flex min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                    />
-                    {errors.body && (
-                        <p className="text-sm text-destructive">
-                            {errors.body}
-                        </p>
-                    )}
-
-                    <div className="flex justify-end gap-2">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setReplyingTo(null);
-                                setReplyBody('');
-                            }}
-                            className="rounded-md border px-3 py-2 text-sm"
-                        >
-                            Cancel
-                        </button>
-
-                        <button
-                            type="submit"
-                            disabled={processing || !replyBody.trim()}
-                            className="rounded-md border px-3 py-2 text-sm"
-                        >
-                            Send Reply
-                        </button>
-                    </div>
-                </form>
-            )}
-
-            {message.replies.length > 0 && (
-                <div className="mt-4 space-y-3 border-l pl-4">
-                    {message.replies.map((reply) => (
-                        <div
-                            key={reply.id}
-                            className="rounded-md bg-muted/40 p-3"
-                        >
-                            <div>
-                                <p className="text-sm font-medium">
-                                    {reply.author.name}
-                                </p>
-
-                                <p className="text-xs text-muted-foreground">
-                                    {new Date(
-                                        reply.created_at,
-                                    ).toLocaleString()}
-                                </p>
-                            </div>
-
-                            <p className="mt-3 text-sm whitespace-pre-wrap">
-                                {reply.body}
-                            </p>
-                        </div>
-                    ))}
-                </div>
             )}
         </div>
     );

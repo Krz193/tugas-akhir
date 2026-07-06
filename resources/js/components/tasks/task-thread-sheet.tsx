@@ -63,8 +63,8 @@ export function TaskThreadSheet({
                             task && (
                                 <ThreadSection
                                     messages={messages}
-                                    messageableType="task"
-                                    messageableId={task.id}
+                                    postUrl={`/tasks/${task.id}/messages`}
+                                    canManageMessages={true}
                                     onMessageSent={onMessageSent}
                                 />
                             )

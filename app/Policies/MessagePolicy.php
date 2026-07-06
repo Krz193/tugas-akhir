@@ -9,73 +9,87 @@ use App\Models\User;
 
 class MessagePolicy
 {
-    /** Determine whether the user can list messages in accessible project contexts. */
+    private function isPm(User $user): bool
+    {
+        return $user->employee?->role?->slug === 'project-manager';
+    }
+
+    /** Mengecek apakah employee menjadi anggota project pesan ini. */
+    private function canAccessThread(User $user, Message $message): bool
+    {
+        $employeeId = $user->employee?->id;
+
+        if ($employeeId === null) {
+            return false;
+        }
+
+        $message->loadMissing('thread.task.project');
+        $project = $message->thread?->task?->project;
+
+        if ($project === null) {
+            return false;
+        }
+
+        return $project->members()->where('employee_id', $employeeId)->exists();
+    }
+
     public function viewAny(User $user): bool
     {
-        return $user->projects()->exists() || $user->managedProjects()->exists();
+        return true;
     }
 
-    /** Determine whether the user can view a specific message based on its owner context. */
     public function view(User $user, Message $message): bool
     {
-        return $this->canAccessMessageOwner($user, $message);
+        return $this->isPm($user) || $this->canAccessThread($user, $message);
     }
 
-    /** Determine whether the user can create a message under a project or task thread. */
+    /** Anggota project boleh membuat pesan di project atau task. */
     public function create(User $user, Project|Task $owner): bool
     {
-        if ($owner instanceof Task) {
-            return $user->isProjectMember($owner->project);
+        if ($this->isPm($user)) {
+            return true;
         }
 
-        return $user->isProjectMember($owner);
+        $employeeId = $user->employee?->id;
+
+        if ($employeeId === null) {
+            return false;
+        }
+
+        $project = $owner instanceof Task ? $owner->project : $owner;
+
+        if ($project === null) {
+            return false;
+        }
+
+        return $project->members()->where('employee_id', $employeeId)->exists();
     }
 
-    /** Determine whether the user can update a message. */
+    /** PM boleh mengubah semua pesan. Pengirim boleh mengubah pesan sendiri. */
     public function update(User $user, Message $message): bool
     {
-        if (! $this->canAccessMessageOwner($user, $message)) {
-            return false;
+        if ($this->isPm($user)) {
+            return true;
         }
 
-        return $message->user_id === $user->id || $user->isProjectManager();
+        $employeeId = $user->employee?->id;
+
+        return $employeeId !== null
+            && (int) $message->sender_id === (int) $employeeId;
     }
 
-    /** Determine whether the user can delete a message. */
     public function delete(User $user, Message $message): bool
     {
-        if (! $this->canAccessMessageOwner($user, $message)) {
-            return false;
-        }
-
-        return $message->user_id === $user->id || $user->isProjectManager();
+        return $this->update($user, $message);
     }
 
-    /** Determine whether the user can restore a message. */
     public function restore(User $user, Message $message): bool
     {
-        return $this->delete($user, $message);
+        return $this->update($user, $message);
     }
 
-    /** Determine whether the user can permanently delete a message. */
     public function forceDelete(User $user, Message $message): bool
     {
-        return $this->delete($user, $message);
-    }
-
-    /** Resolve access to a message by checking membership on the polymorphic owner. */
-    protected function canAccessMessageOwner(User $user, Message $message): bool
-    {
-        $owner = $message->messageable;
-
-        if ($owner instanceof Task) {
-            return $user->isProjectMember($owner->project);
-        }
-
-        if ($owner instanceof Project) {
-            return $user->isProjectMember($owner);
-        }
-
-        return false;
+        return $this->update($user, $message);
     }
 }

@@ -7,59 +7,71 @@ use App\Models\User;
 
 class ProjectPolicy
 {
-    /** Determine whether the user can list projects they are involved in. */
+    private function isPm(User $user): bool
+    {
+        return $user->employee?->role?->slug === 'project-manager';
+    }
+
+    private function isMember(User $user, Project $project): bool
+    {
+        $employeeId = $user->employee?->id;
+
+        if ($employeeId === null) {
+            return false;
+        }
+
+        return $project->members()->where('employee_id', $employeeId)->exists();
+    }
+
+    /** User login boleh membuka daftar project. */
     public function viewAny(User $user): bool
     {
-        return $user->isProjectManager()
-            || $user->projects()->exists()
-            || $user->managedProjects()->exists();
+        return true;
     }
 
-    /** Determine whether the user can view a specific project. */
+    /** PM melihat semua project. User lain harus menjadi anggota. */
     public function view(User $user, Project $project): bool
     {
-        return $user->isProjectMember($project);
+        return $this->isPm($user) || $this->isMember($user, $project);
     }
 
-    /** Determine whether the user can create new projects (PM only). */
+    /** Hanya PM yang boleh membuat project. */
     public function create(User $user): bool
     {
-        return $user->isProjectManager();
+        return $this->isPm($user);
     }
 
-    /** Determine whether the user can update a project (creator only). */
+    /** Hanya PM yang boleh mengubah project. */
     public function update(User $user, Project $project): bool
     {
-        return $project->created_by === $user->id;
+        return $this->isPm($user);
     }
 
-    /** Determine whether the user can delete a project (creator only). */
+    /** Hanya PM yang boleh menghapus project. */
     public function delete(User $user, Project $project): bool
     {
-        return $project->created_by === $user->id;
+        return $this->isPm($user);
     }
 
-    /** Determine whether the user can restore a project (creator only). */
     public function restore(User $user, Project $project): bool
     {
-        return $project->created_by === $user->id;
+        return $this->isPm($user);
     }
 
-    /** Determine whether the user can permanently delete a project (creator only). */
     public function forceDelete(User $user, Project $project): bool
     {
-        return $project->created_by === $user->id;
+        return $this->isPm($user);
     }
 
-    /** Determine whether the user can manage project members (creator only). */
+    /** Hanya PM yang boleh mengelola anggota project. */
     public function manageMembers(User $user, Project $project): bool
     {
-        return $project->created_by === $user->id;
+        return $this->isPm($user);
     }
 
-    /** Determine whether the user can manage project tasks (creator or PM). */
+    /** Hanya PM yang boleh mengelola task dalam project. */
     public function manageTasks(User $user, Project $project): bool
     {
-        return $project->created_by === $user->id || $user->isProjectManager();
+        return $this->isPm($user);
     }
 }

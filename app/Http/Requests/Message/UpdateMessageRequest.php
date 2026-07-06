@@ -18,7 +18,7 @@ class UpdateMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'body' => ['required', 'string'],
+            'message_body' => ['required', 'string'],
         ];
     }
 }

@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Project;
 
+use App\Models\Employee;
 use App\Models\Project;
-use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,12 +23,13 @@ class AddProjectMemberRequest extends FormRequest
         $project = $this->route('project');
 
         return [
-            'user_id' => [
+            'employee_id' => [
                 'required',
                 'integer',
-                Rule::exists(User::class, 'id'),
-                Rule::unique('project_members', 'user_id')->where(fn ($q) => $q->where('project_id', $project->id)),
+                Rule::exists(Employee::class, 'id'),
+                Rule::unique('project_members', 'employee_id')->where(fn ($q) => $q->where('project_id', $project->id)),
             ],
+            'is_leader' => ['nullable', 'boolean'],
         ];
     }
 }

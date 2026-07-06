@@ -18,22 +18,28 @@ import {
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { useTaskThread } from '@/hooks/use-task-thread';
 import AppLayout from '@/layouts/app-layout';
-import type { AppUser, BreadcrumbItem, Project, Task, Message } from '@/types';
-import type { AvailableUser, ProjectFormData } from '@/types/project';
+import type {
+    BreadcrumbItem,
+    Employee,
+    Project,
+    ProjectMember,
+    ProjectMessage,
+    Task,
+} from '@/types';
+import type { AvailableEmployee, ProjectFormData } from '@/types/project';
 
-// Props sent by ProjectController::show()
+// Data dari ProjectController.
 type Props = {
     project: Project & {
-        creator: AppUser;
-        users: AppUser[]; // project members (excludes creator)
+        members: ProjectMember[];
         tasks: Task[];
     };
-    assignees: AppUser[]; // creator + members combined, for the task form
-    projectThread: Message[];
-    availableUsers: AvailableUser[];
+    assignees: Employee[];
+    projectMessages: ProjectMessage[];
+    availableEmployees: AvailableEmployee[];
 };
 
-// Formats 'YYYY-MM-DD' → 'Jun 30, 2026'. Returns '—' if null.
+// Mengubah tanggal agar mudah dibaca.
 function formatDate(date: string | null) {
     if (!date) return '—';
     return new Date(date).toLocaleDateString('en-US', {
@@ -43,12 +49,12 @@ function formatDate(date: string | null) {
     });
 }
 
-// ------- ProjectShow (main page) -------
+// Halaman detail project.
 export default function ProjectShow({
     project,
     assignees,
-    projectThread,
-    availableUsers,
+    projectMessages,
+    availableEmployees,
 }: Props) {
     const { isProjectManager } = useAuthUser();
     const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -61,7 +67,7 @@ export default function ProjectShow({
             description: project.description ?? '',
             start_date: project.start_date ?? '',
             due_date: project.due_date ?? '',
-            member_ids: project.users.map((user) => user.id),
+            member_ids: project.members.map((member) => member.employee_id),
         });
 
     const {
@@ -102,7 +108,7 @@ export default function ProjectShow({
             <Head title={project.name} />
 
             <div className="flex flex-col gap-6 p-4">
-                {/* ── Project Info ── */}
+                {/* Informasi project */}
                 <div className="flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-4">
                         <div className="space-y-2">
@@ -137,18 +143,17 @@ export default function ProjectShow({
                         </Button>
                     </div>
 
-                    {/* Dates + creator */}
+                    {/* Tanggal project */}
                     <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                             <CalendarDays className="h-4 w-4" />
-                            {formatDate(project.start_date)} →{' '}
+                            {formatDate(project.start_date)} to{' '}
                             {formatDate(project.due_date)}
                         </span>
-                        <span>Created by {project.creator.name}</span>
                     </div>
                 </div>
 
-                {/* Project level discussion/sheet */}
+                {/* Diskusi project */}
                 <div className="space-y-4 rounded-xl border p-6">
                     <div>
                         <h2 className="text-lg font-semibold">Discussion</h2>
@@ -159,13 +164,13 @@ export default function ProjectShow({
                     </div>
 
                     <ThreadSection
-                        messages={projectThread}
-                        messageableType="project"
-                        messageableId={project.id}
+                        messages={projectMessages}
+                        postUrl={`/projects/${project.id}/messages`}
+                        canManageMessages={false}
                     />
                 </div>
 
-                {/* ── Tasks ── */}
+                {/* Daftar task */}
                 <div>
                     <div className="mb-3 flex items-center justify-between">
                         <h2 className="font-semibold">
@@ -192,7 +197,7 @@ export default function ProjectShow({
                         </p>
                     ) : (
                         <div className="rounded-lg border">
-                            {/* Column headers — hidden on mobile */}
+                            {/* Judul kolom untuk layar besar */}
                             <div className="hidden items-center gap-3 border-b bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground sm:flex">
                                 <span className="w-24">Status</span>
                                 <span className="flex-1">Task</span>
@@ -219,43 +224,51 @@ export default function ProjectShow({
                     )}
                 </div>
 
-                {/* ── Members ── */}
+                {/* Anggota project */}
                 <div>
                     <h2 className="mb-3 font-semibold">
                         Members{' '}
                         <span className="font-normal text-muted-foreground">
-                            ({project.users.length})
+                            ({project.members.length})
                         </span>
                     </h2>
 
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {project.users.map((member) => (
-                            <div
-                                key={member.id}
-                                className="flex items-center gap-3 rounded-lg border p-3"
-                            >
-                                {/* Avatar initials */}
-                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                                    {member.name
-                                        .split(' ')
-                                        .map((n) => n[0])
-                                        .join('')
-                                        .slice(0, 2)
-                                        .toUpperCase()}
+                        {project.members.map((member) => {
+                            const employee = member.employee;
+
+                            if (!employee) {
+                                return null;
+                            }
+
+                            return (
+                                <div
+                                    key={member.id}
+                                    className="flex items-center gap-3 rounded-lg border p-3"
+                                >
+                                    {/* Inisial avatar */}
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                                        {employee.name
+                                            .split(' ')
+                                            .map((n) => n[0])
+                                            .join('')
+                                            .slice(0, 2)
+                                            .toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium">
+                                            {employee.name}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {employee.role?.name ?? '—'}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="min-w-0">
-                                    <p className="truncate text-sm font-medium">
-                                        {member.name}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {member.role?.name ?? '—'}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
-                    {project.users.length === 0 && (
+                    {project.members.length === 0 && (
                         <p className="text-sm text-muted-foreground">
                             No members yet.
                         </p>
@@ -263,7 +276,7 @@ export default function ProjectShow({
                 </div>
             </div>
 
-            {/* Add Task dialog — PM only */}
+            {/* Dialog tambah task */}
             <CreateTaskDialog
                 projectId={project.id}
                 assignees={assignees}
@@ -271,7 +284,7 @@ export default function ProjectShow({
                 onOpenChange={setTaskDialogOpen}
             />
 
-            {/* Task level discussion dialog/sheet */}
+            {/* Diskusi task */}
             <TaskThreadSheet
                 task={selectedTask}
                 messages={taskMessages}
@@ -317,7 +330,7 @@ export default function ProjectShow({
                             setData={setData}
                             errors={errors}
                             processing={processing}
-                            availableUsers={availableUsers}
+                            availableEmployees={availableEmployees}
                             submitLabel="Save Changes"
                         />
                     </form>

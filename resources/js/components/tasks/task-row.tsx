@@ -40,7 +40,9 @@ type TaskRowProps = {
 export function TaskRow({ task, canDelete, onClick }: TaskRowProps) {
     const { user, isProjectManager } = useAuthUser();
 
-    const canUpdateStatus = isProjectManager() || task.assigned_to === user.id;
+    const employeeId = user.employee?.id;
+    const canUpdateStatus =
+        isProjectManager() || task.assigned_employee_id === employeeId;
 
     function handleStatusChange(newStatus: string) {
         router.patch(`/tasks/${task.id}/status`, {

@@ -1,5 +1,4 @@
-// pages/projects/index.tsx — Shows all projects the user has access to.
-// PM users also get a "Create Project" button that opens a dialog.
+// Halaman daftar project.
 
 import { Head, Link, useForm } from '@inertiajs/react';
 import { CalendarDays, Plus, Users } from 'lucide-react';
@@ -24,15 +23,15 @@ import {
 import { useAuthUser } from '@/hooks/use-auth-user';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, Project } from '@/types';
-import type { AvailableUser } from '@/types/project';
+import type { AvailableEmployee } from '@/types/project';
 
-// Props coming from ProjectController::index() via Inertia
+// Data dari ProjectController.
 type Props = {
     projects: Project[];
-    availableUsers: AvailableUser[];
+    availableEmployees: AvailableEmployee[];
 };
 
-// Maps a status value to a badge color
+// Menentukan warna badge status.
 function getStatusVariant(status: Project['status']) {
     if (status === 'active') return 'default' as const;
     if (status === 'planning') return 'secondary' as const;
@@ -41,7 +40,7 @@ function getStatusVariant(status: Project['status']) {
     return 'secondary' as const;
 }
 
-// Maps a status value to a readable label
+// Mengubah status menjadi label.
 function getStatusLabel(status: Project['status']) {
     const labels = {
         planning: 'Planning',
@@ -52,7 +51,7 @@ function getStatusLabel(status: Project['status']) {
     return labels[status];
 }
 
-// Formats '2026-06-30' into 'Jun 30, 2026', returns null if no date
+// Mengubah tanggal agar mudah dibaca.
 function formatDate(dateStr: string | null) {
     if (!dateStr) return null;
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -62,7 +61,7 @@ function formatDate(dateStr: string | null) {
     });
 }
 
-// Single project card
+// Kartu untuk satu project.
 function ProjectCard({ project }: { project: Project }) {
     const dueDate = formatDate(project.due_date);
 
@@ -94,7 +93,7 @@ function ProjectCard({ project }: { project: Project }) {
                 <div className="flex gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        {project.users_count ?? 0} members
+                        {project.members_count ?? 0} members
                     </span>
                     <span className="flex items-center gap-1">
                         <span className="h-4 w-4 rounded-full border-2 border-current" />
@@ -112,15 +111,15 @@ function ProjectCard({ project }: { project: Project }) {
     );
 }
 
-// Dialog form to create a new project (PM only)
+// Dialog untuk membuat project.
 function CreateProjectDialog({
     open,
     onOpenChange,
-    availableUsers,
+    availableEmployees,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    availableUsers: AvailableUser[];
+    availableEmployees: AvailableEmployee[];
 }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
@@ -153,7 +152,7 @@ function CreateProjectDialog({
                         setData={setData}
                         errors={errors}
                         processing={processing}
-                        availableUsers={availableUsers}
+                        availableEmployees={availableEmployees}
                         submitLabel="Create Project"
                     />
                 </form>
@@ -162,7 +161,7 @@ function CreateProjectDialog({
     );
 }
 
-// Empty state shown when there are no projects yet
+// Tampilan saat belum ada project.
 function EmptyState({
     canCreate,
     onCreate,
@@ -193,13 +192,13 @@ function EmptyState({
     );
 }
 
-// Breadcrumb shown at the top of the page
+// Breadcrumb halaman project.
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Projects', href: '/projects' },
 ];
 
-// Main page component — Inertia renders this when visiting GET /projects
-export default function ProjectsIndex({ projects, availableUsers }: Props) {
+// Komponen utama daftar project.
+export default function ProjectsIndex({ projects, availableEmployees }: Props) {
     const { isProjectManager } = useAuthUser();
     const [createOpen, setCreateOpen] = useState(false);
 
@@ -210,7 +209,7 @@ export default function ProjectsIndex({ projects, availableUsers }: Props) {
             <Head title="Projects" />
 
             <div className="flex flex-col gap-6 p-4">
-                {/* Header row */}
+                {/* Header halaman */}
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-semibold">Projects</h1>
                     {canCreate && (
@@ -221,7 +220,7 @@ export default function ProjectsIndex({ projects, availableUsers }: Props) {
                     )}
                 </div>
 
-                {/* Project cards or empty state */}
+                {/* Daftar project atau kondisi kosong */}
                 {projects.length === 0 ? (
                     <EmptyState
                         canCreate={canCreate}
@@ -239,7 +238,7 @@ export default function ProjectsIndex({ projects, availableUsers }: Props) {
             <CreateProjectDialog
                 open={createOpen}
                 onOpenChange={setCreateOpen}
-                availableUsers={availableUsers}
+                availableEmployees={availableEmployees}
             />
         </AppLayout>
     );
