@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Message\StoreMessageRequest;
-use App\Http\Requests\Message\UpdateMessageRequest;
 use App\Models\Message;
 use App\Models\Project;
 use App\Models\ProjectMessage;
@@ -71,26 +70,6 @@ class MessageController extends Controller
             'sender_id' => $this->authenticatedEmployeeId($request),
             'message_body' => $request->validated('message_body'),
         ]);
-
-        return redirect()->back();
-    }
-
-    /** Mengubah pesan task. */
-    public function update(UpdateMessageRequest $request, Message $message): RedirectResponse
-    {
-        $message->update([
-            'message_body' => $request->validated('message_body'),
-        ]);
-
-        return redirect()->back();
-    }
-
-    /** Menghapus pesan task. */
-    public function destroy(Message $message): RedirectResponse
-    {
-        Gate::authorize('delete', $message);
-
-        $message->delete();
 
         return redirect()->back();
     }

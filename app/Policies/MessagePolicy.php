@@ -84,31 +84,4 @@ class MessagePolicy
         return (int) $owner->assigned_employee_id === (int) $employeeId;
     }
 
-    /** PM boleh mengubah semua pesan. Pengirim boleh mengubah pesan sendiri. */
-    public function update(User $user, Message $message): bool
-    {
-        if ($this->isPm($user)) {
-            return true;
-        }
-
-        $employeeId = $user->employee?->id;
-
-        return $employeeId !== null
-            && (int) $message->sender_id === (int) $employeeId;
-    }
-
-    public function delete(User $user, Message $message): bool
-    {
-        return $this->update($user, $message);
-    }
-
-    public function restore(User $user, Message $message): bool
-    {
-        return $this->update($user, $message);
-    }
-
-    public function forceDelete(User $user, Message $message): bool
-    {
-        return $this->update($user, $message);
-    }
 }

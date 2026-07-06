@@ -5,14 +5,12 @@ import { MessageCard } from './message-card';
 type ThreadSectionProps = {
     messages: Array<Message | ProjectMessage>;
     postUrl: string;
-    canManageMessages: boolean;
     onMessageSent?: () => void;
 };
 
 export function ThreadSection({
     messages,
     postUrl,
-    canManageMessages,
     onMessageSent,
 }: ThreadSectionProps) {
     const { data, setData, post, processing, reset, errors } = useForm({
@@ -31,8 +29,6 @@ export function ThreadSection({
                         <MessageCard
                             key={message.id}
                             message={message}
-                            canManageMessages={canManageMessages}
-                            onMessageSent={onMessageSent}
                         />
                     ))}
                 </div>

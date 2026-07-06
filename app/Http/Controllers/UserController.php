@@ -58,7 +58,6 @@ class UserController extends Controller
                 'name' => $validated['name'],
                 'phone' => $validated['phone'] ?? null,
                 'address' => $validated['address'] ?? null,
-                'avatar_url' => $validated['avatar_url'] ?? null,
             ]);
         });
 
@@ -88,7 +87,6 @@ class UserController extends Controller
                     'name' => $validated['name'],
                     'phone' => $validated['phone'] ?? null,
                     'address' => $validated['address'] ?? null,
-                    'avatar_url' => $validated['avatar_url'] ?? null,
                 ]
             );
         });

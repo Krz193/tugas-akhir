@@ -64,7 +64,6 @@ export function TaskThreadSheet({
                                 <ThreadSection
                                     messages={messages}
                                     postUrl={`/tasks/${task.id}/messages`}
-                                    canManageMessages={true}
                                     onMessageSent={onMessageSent}
                                 />
                             )

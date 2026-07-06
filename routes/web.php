@@ -54,10 +54,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Task thread messages (Thread → Message)
     Route::get('tasks/{task}/messages', [MessageController::class, 'getMessagesByThread'])->name('tasks.messages.index');
     Route::post('tasks/{task}/messages', [MessageController::class, 'sendTaskMessage'])->name('tasks.messages.store');
-
-    // Message edit/delete (task thread messages only)
-    Route::patch('messages/{message}', [MessageController::class, 'update'])->name('messages.update');
-    Route::delete('messages/{message}', [MessageController::class, 'destroy'])->name('messages.destroy');
 });
 
 require __DIR__ . '/settings.php';

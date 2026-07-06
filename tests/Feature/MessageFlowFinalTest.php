@@ -98,46 +98,6 @@ class MessageFlowFinalTest extends TestCase
             ->assertJsonMissingPath('data.0.parent_id');
     }
 
-    public function test_sender_can_update_own_task_message(): void
-    {
-        $member = $this->createUserWithRole('team-member');
-        $project = $this->createProjectWithMember($member->employee);
-        $task = $this->createTask($project, $member->employee);
-        $thread = Thread::query()->create(['task_id' => $task->id]);
-        $message = Message::query()->create([
-            'thread_id' => $thread->id,
-            'sender_id' => $member->employee->id,
-            'message_body' => 'Original',
-        ]);
-
-        $this->actingAs($member)
-            ->patch(route('messages.update', $message), ['message_body' => 'Updated'])
-            ->assertRedirect();
-
-        $this->assertSame('Updated', $message->refresh()->message_body);
-    }
-
-    public function test_non_sender_cannot_update_task_message(): void
-    {
-        $sender = $this->createUserWithRole('team-member');
-        $otherMember = $this->createUserWithRole('team-member');
-        $project = $this->createProjectWithMember($sender->employee);
-        $this->addMember($project, $otherMember->employee);
-        $task = $this->createTask($project, $sender->employee);
-        $thread = Thread::query()->create(['task_id' => $task->id]);
-        $message = Message::query()->create([
-            'thread_id' => $thread->id,
-            'sender_id' => $sender->employee->id,
-            'message_body' => 'Protected',
-        ]);
-
-        $this->actingAs($otherMember)
-            ->patch(route('messages.update', $message), ['message_body' => 'Attempt'])
-            ->assertForbidden();
-
-        $this->assertSame('Protected', $message->refresh()->message_body);
-    }
-
     private function createTask(Project $project, Employee $assignee): Task
     {
         return Task::query()->create([

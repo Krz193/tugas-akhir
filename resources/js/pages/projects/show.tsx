@@ -166,7 +166,6 @@ export default function ProjectShow({
                     <ThreadSection
                         messages={projectMessages}
                         postUrl={`/projects/${project.id}/messages`}
-                        canManageMessages={false}
                     />
                 </div>
 
