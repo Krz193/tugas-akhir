@@ -44,7 +44,7 @@ export default function RecentActivityList({
             </CardHeader>
 
             <CardContent>
-                <div className="space-y-4">
+                <div className="max-h-80 space-y-4 overflow-y-auto pr-2">
                     {activities.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                             No recent activities found.

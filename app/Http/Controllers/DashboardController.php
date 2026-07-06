@@ -12,17 +12,19 @@ class DashboardController extends Controller
 {
     public function index(Request $request): Response
     {
+        $this->ensureCanViewDashboard($request);
+
         $selectedDate = $request->date('date') ?? today();
         $accessibleProjectIds = $this->accessibleProjectIds($request);
 
         return Inertia::render('dashboard', [
-            'summary' => $this->projectAndTaskSummary($accessibleProjectIds),
-            'recentActivities' => $this->recentTaskActivities($accessibleProjectIds),
-            'incomingDueTasks' => $this->incomingDueTasks($accessibleProjectIds),
-            'calendarItems' => $this->calendarItems($accessibleProjectIds),
+            'projectSummary' => $this->getProjectSummary($accessibleProjectIds),
+            'recentActivities' => $this->getRecentActivities($accessibleProjectIds),
+            'incomingDueTasks' => $this->getIncomingDueTasks($accessibleProjectIds),
+            'calendarData' => $this->getCalendarData($accessibleProjectIds),
             'selectedDate' => $selectedDate->toDateString(),
-            'selectedDateDeadlines' => $this->deadlinesForDate($accessibleProjectIds, $selectedDate),
-            'timelineProjects' => $this->timelineProjects($accessibleProjectIds),
+            'deadlinesByDate' => $this->getDeadlinesByDate($accessibleProjectIds, $selectedDate),
+            'timelineData' => $this->getTimelineData($accessibleProjectIds),
         ]);
     }
 
@@ -43,7 +45,16 @@ class DashboardController extends Controller
         return $projectsQuery->pluck('id');
     }
 
-    private function projectAndTaskSummary($projectIds): array
+    private function ensureCanViewDashboard(Request $request): void
+    {
+        $roleSlug = $request->user()?->employee?->role?->slug;
+
+        if (! in_array($roleSlug, ['project-manager', 'business-developer'], true)) {
+            abort(403);
+        }
+    }
+
+    public function getProjectSummary($projectIds): array
     {
         $today = today();
 
@@ -74,7 +85,7 @@ class DashboardController extends Controller
         ];
     }
 
-    private function recentTaskActivities($projectIds)
+    public function getRecentActivities($projectIds)
     {
         return Task::query()
             ->with('project')
@@ -96,7 +107,7 @@ class DashboardController extends Controller
             });
     }
 
-    private function incomingDueTasks($projectIds)
+    public function getIncomingDueTasks($projectIds)
     {
         $today = today();
         $oneWeekFromToday = today()->addDays(7);
@@ -125,7 +136,7 @@ class DashboardController extends Controller
             });
     }
 
-    private function calendarItems($projectIds)
+    public function getCalendarData($projectIds)
     {
         $projectCalendarItems = Project::query()
             ->whereIn('id', $projectIds)
@@ -168,7 +179,7 @@ class DashboardController extends Controller
             ->values();
     }
 
-    private function deadlinesForDate($projectIds, $selectedDate)
+    public function getDeadlinesByDate($projectIds, $selectedDate)
     {
         $projectDeadlines = Project::query()
             ->whereIn('id', $projectIds)
@@ -208,7 +219,7 @@ class DashboardController extends Controller
             ->values();
     }
 
-    private function timelineProjects($projectIds)
+    public function getTimelineData($projectIds)
     {
         return Project::query()
             ->whereIn('id', $projectIds)

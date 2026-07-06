@@ -324,6 +324,12 @@ function UserRow({
             <td className="px-4 py-3">
                 {user.employee?.division?.name ?? 'No division'}
             </td>
+            <td className="px-4 py-3 text-muted-foreground">
+                {user.employee?.phone || '-'}
+            </td>
+            <td className="max-w-xs truncate px-4 py-3 text-muted-foreground">
+                {user.employee?.address || '-'}
+            </td>
             <td className="px-4 py-3 text-right">
                 <div className="flex justify-end gap-2">
                     <Button
@@ -365,8 +371,8 @@ export default function UsersIndex({ users, roles, divisions }: Props) {
                     </Button>
                 </div>
 
-                <div className="overflow-hidden rounded-md border">
-                    <table className="w-full text-sm">
+                <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full min-w-5xl text-sm">
                         <thead className="bg-muted text-left">
                             <tr>
                                 <th className="px-4 py-3 font-medium">Name</th>
@@ -376,6 +382,12 @@ export default function UsersIndex({ users, roles, divisions }: Props) {
                                 <th className="px-4 py-3 font-medium">Role</th>
                                 <th className="px-4 py-3 font-medium">
                                     Division
+                                </th>
+                                <th className="px-4 py-3 font-medium">
+                                    Phone
+                                </th>
+                                <th className="px-4 py-3 font-medium">
+                                    Address
                                 </th>
                                 <th className="px-4 py-3 text-right font-medium">
                                     Actions
