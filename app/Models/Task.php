@@ -5,8 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Task extends Model
 {
@@ -14,24 +13,19 @@ class Task extends Model
 
     protected $fillable = [
         'project_id',
-        'created_by',
-        'assigned_to',
+        'assigned_employee_id',
         'title',
         'description',
         'status',
-        'priority',
         'start_date',
         'due_date',
-        'completed_at',
-        'position',
     ];
 
     protected function casts(): array
     {
         return [
             'start_date' => 'date',
-            'due_date' => 'date',
-            'completed_at' => 'datetime',
+            'due_date'   => 'date',
         ];
     }
 
@@ -40,23 +34,13 @@ class Task extends Model
         return $this->belongsTo(Project::class);
     }
 
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
     public function assignee(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assigned_to');
+        return $this->belongsTo(Employee::class, 'assigned_employee_id');
     }
 
-    public function attachments(): HasMany
+    public function thread(): HasOne
     {
-        return $this->hasMany(Attachment::class);
-    }
-
-    public function messages(): MorphMany
-    {
-        return $this->morphMany(Message::class, 'messageable');
+        return $this->hasOne(Thread::class);
     }
 }

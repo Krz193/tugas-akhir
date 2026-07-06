@@ -8,12 +8,13 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     *
+     * projects — no created_by column; not part of the approved Project attributes.
      */
     public function up(): void
     {
         Schema::create('projects', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('created_by')->constrained('users');
             $table->string('name');
             $table->text('description')->nullable();
             $table->string('status')->default('planning');

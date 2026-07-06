@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProjectMember extends Model
 {
@@ -12,15 +12,16 @@ class ProjectMember extends Model
 
     protected $fillable = [
         'project_id',
-        'user_id',
-        'added_by',
-        'joined_at',
+        'employee_id',
+        'is_leader',
+        'date_joined',
     ];
 
     protected function casts(): array
     {
         return [
-            'joined_at' => 'datetime',
+            'is_leader'   => 'boolean',
+            'date_joined' => 'date',
         ];
     }
 
@@ -29,13 +30,8 @@ class ProjectMember extends Model
         return $this->belongsTo(Project::class);
     }
 
-    public function user(): BelongsTo
+    public function employee(): BelongsTo
     {
-        return $this->belongsTo(User::class);
-    }
-
-    public function addedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'added_by');
+        return $this->belongsTo(Employee::class);
     }
 }

@@ -9,8 +9,7 @@ class DivisionSeeder extends Seeder
 {
     /**
      * Creates 3 company divisions.
-     * lead_user_id is left null here — UserSeeder assigns division leads
-     * after users exist, because a lead must be a member of the division first.
+     * Role and division assignment happens on Employee records.
      */
     public function run(): void
     {

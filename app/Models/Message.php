@@ -5,46 +5,24 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Message extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-        'messageable_type',
-        'messageable_id',
-        'parent_id',
-        'body',
-        'edited_at',
+        'thread_id',
+        'sender_id',
+        'message_body',
     ];
 
-    protected function casts(): array
+    public function thread(): BelongsTo
     {
-        return [
-            'edited_at' => 'datetime',
-        ];
+        return $this->belongsTo(Thread::class);
     }
 
-    public function author(): BelongsTo
+    public function sender(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
-    }
-
-    public function messageable(): MorphTo
-    {
-        return $this->morphTo();
-    }
-
-    public function parent(): BelongsTo
-    {
-        return $this->belongsTo(self::class, 'parent_id');
-    }
-
-    public function replies(): HasMany
-    {
-        return $this->hasMany(self::class, 'parent_id');
+        return $this->belongsTo(Employee::class, 'sender_id');
     }
 }
