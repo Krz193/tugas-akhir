@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Gate;
 class MessageController extends Controller
 {
     /** Menampilkan pesan project. */
-    public function indexProject(Project $project): JsonResponse
+    public function getMessagesByProject(Project $project): JsonResponse
     {
         Gate::authorize('view', $project);
 
@@ -30,7 +30,7 @@ class MessageController extends Controller
     }
 
     /** Menampilkan pesan pada thread task. */
-    public function indexTask(Task $task): JsonResponse
+    public function getMessagesByThread(Task $task): JsonResponse
     {
         Gate::authorize('view', $task);
 
@@ -48,7 +48,7 @@ class MessageController extends Controller
     }
 
     /** Menyimpan pesan project. */
-    public function storeProject(StoreMessageRequest $request, Project $project): RedirectResponse
+    public function sendProjectMessage(StoreMessageRequest $request, Project $project): RedirectResponse
     {
         ProjectMessage::query()->create([
             'project_id' => $project->id,
@@ -60,7 +60,7 @@ class MessageController extends Controller
     }
 
     /** Menyimpan pesan task. */
-    public function storeTask(StoreMessageRequest $request, Task $task): RedirectResponse
+    public function sendTaskMessage(StoreMessageRequest $request, Task $task): RedirectResponse
     {
         $thread = Thread::query()->firstOrCreate([
             'task_id' => $task->id,

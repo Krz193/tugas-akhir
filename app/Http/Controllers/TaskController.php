@@ -18,8 +18,12 @@ use Inertia\Response;
 class TaskController extends Controller
 {
     /** Menampilkan task milik user dengan filter. */
-    public function myTasks(Request $request): Response
+    public function getMyTasks(Request $request): Response
     {
+        if ($request->user()?->employee?->role?->slug !== 'team-member') {
+            abort(403);
+        }
+
         $validated = Validator::make($request->query(), [
             'status' => ['nullable', 'in:todo,in_progress,pending_review,done'],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
@@ -73,7 +77,7 @@ class TaskController extends Controller
     /** Menampilkan task dalam project yang dapat diakses. */
     public function index(Project $project): JsonResponse
     {
-        Gate::authorize('view', $project);
+        Gate::authorize('manageTasks', $project);
 
         $tasks = $project->tasks()
             ->with(['assignee.role', 'assignee.division'])

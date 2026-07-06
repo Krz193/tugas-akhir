@@ -12,6 +12,11 @@ class ProjectPolicy
         return $user->employee?->role?->slug === 'project-manager';
     }
 
+    private function isBusinessDeveloper(User $user): bool
+    {
+        return $user->employee?->role?->slug === 'business-developer';
+    }
+
     private function isMember(User $user, Project $project): bool
     {
         $employeeId = $user->employee?->id;
@@ -26,13 +31,14 @@ class ProjectPolicy
     /** User login boleh membuka daftar project. */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $this->isPm($user) || $this->isBusinessDeveloper($user);
     }
 
-    /** PM melihat semua project. User lain harus menjadi anggota. */
+    /** PM melihat semua project. BD melihat project yang diikuti. */
     public function view(User $user, Project $project): bool
     {
-        return $this->isPm($user) || $this->isMember($user, $project);
+        return $this->isPm($user)
+            || ($this->isBusinessDeveloper($user) && $this->isMember($user, $project));
     }
 
     /** Hanya PM yang boleh membuat project. */

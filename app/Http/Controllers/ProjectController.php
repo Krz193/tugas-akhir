@@ -131,7 +131,7 @@ class ProjectController extends Controller
     }
 
     /** Menghapus anggota project. */
-    public function removeMember(Request $request, Project $project, Employee $employee): JsonResponse
+    public function deleteMember(Request $request, Project $project, Employee $employee): JsonResponse
     {
         Gate::authorize('manageMembers', $project);
 

@@ -36,24 +36,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Project members — identified by employee_id
     Route::post('projects/{project}/members', [ProjectController::class, 'addMember'])->name('projects.members.store');
-    Route::delete('projects/{project}/members/{employee}', [ProjectController::class, 'removeMember'])->name('projects.members.destroy');
+    Route::delete('projects/{project}/members/{employee}', [ProjectController::class, 'deleteMember'])->name('projects.members.destroy');
 
     // Tasks
     Route::get('projects/{project}/tasks', [TaskController::class, 'index'])->name('projects.tasks.index');
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('projects.tasks.store');
-    Route::get('my-tasks', [TaskController::class, 'myTasks'])->name('tasks.my');
+    Route::get('my-tasks', [TaskController::class, 'getMyTasks'])->name('tasks.my');
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
     Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::patch('tasks/{task}/status', [TaskController::class, 'updateStatus'])->name('tasks.status.update');
     Route::delete('tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
 
     // Project messages (ProjectMessage model — message_project table)
-    Route::get('projects/{project}/messages', [MessageController::class, 'indexProject'])->name('projects.messages.index');
-    Route::post('projects/{project}/messages', [MessageController::class, 'storeProject'])->name('projects.messages.store');
+    Route::get('projects/{project}/messages', [MessageController::class, 'getMessagesByProject'])->name('projects.messages.index');
+    Route::post('projects/{project}/messages', [MessageController::class, 'sendProjectMessage'])->name('projects.messages.store');
 
     // Task thread messages (Thread → Message)
-    Route::get('tasks/{task}/messages', [MessageController::class, 'indexTask'])->name('tasks.messages.index');
-    Route::post('tasks/{task}/messages', [MessageController::class, 'storeTask'])->name('tasks.messages.store');
+    Route::get('tasks/{task}/messages', [MessageController::class, 'getMessagesByThread'])->name('tasks.messages.index');
+    Route::post('tasks/{task}/messages', [MessageController::class, 'sendTaskMessage'])->name('tasks.messages.store');
 
     // Message edit/delete (task thread messages only)
     Route::patch('messages/{message}', [MessageController::class, 'update'])->name('messages.update');

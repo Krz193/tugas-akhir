@@ -14,8 +14,17 @@ class MessagePolicy
         return $user->employee?->role?->slug === 'project-manager';
     }
 
-    /** Mengecek apakah employee menjadi anggota project pesan ini. */
-    private function canAccessThread(User $user, Message $message): bool
+    private function isBusinessDeveloper(User $user): bool
+    {
+        return $user->employee?->role?->slug === 'business-developer';
+    }
+
+    private function isTeamMember(User $user): bool
+    {
+        return $user->employee?->role?->slug === 'team-member';
+    }
+
+    private function isProjectMember(User $user, Project $project): bool
     {
         $employeeId = $user->employee?->id;
 
@@ -23,14 +32,26 @@ class MessagePolicy
             return false;
         }
 
-        $message->loadMissing('thread.task.project');
-        $project = $message->thread?->task?->project;
+        return $project->members()->where('employee_id', $employeeId)->exists();
+    }
 
-        if ($project === null) {
+    /** Mengecek apakah member pemilik task dapat membaca thread. */
+    private function canAccessThread(User $user, Message $message): bool
+    {
+        $employeeId = $user->employee?->id;
+
+        if ($employeeId === null || ! $this->isTeamMember($user)) {
             return false;
         }
 
-        return $project->members()->where('employee_id', $employeeId)->exists();
+        $message->loadMissing('thread.task.project');
+        $task = $message->thread?->task;
+
+        if ($task === null) {
+            return false;
+        }
+
+        return (int) $task->assigned_employee_id === (int) $employeeId;
     }
 
     public function viewAny(User $user): bool
@@ -43,26 +64,24 @@ class MessagePolicy
         return $this->isPm($user) || $this->canAccessThread($user, $message);
     }
 
-    /** Anggota project boleh membuat pesan di project atau task. */
+    /** PM dan BD mengirim pesan project. PM dan assignee mengirim pesan task. */
     public function create(User $user, Project|Task $owner): bool
     {
         if ($this->isPm($user)) {
             return true;
         }
 
+        if ($owner instanceof Project) {
+            return $this->isBusinessDeveloper($user) && $this->isProjectMember($user, $owner);
+        }
+
         $employeeId = $user->employee?->id;
 
-        if ($employeeId === null) {
+        if ($employeeId === null || ! $this->isTeamMember($user)) {
             return false;
         }
 
-        $project = $owner instanceof Task ? $owner->project : $owner;
-
-        if ($project === null) {
-            return false;
-        }
-
-        return $project->members()->where('employee_id', $employeeId)->exists();
+        return (int) $owner->assigned_employee_id === (int) $employeeId;
     }
 
     /** PM boleh mengubah semua pesan. Pengirim boleh mengubah pesan sendiri. */

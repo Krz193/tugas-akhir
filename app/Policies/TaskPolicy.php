@@ -13,27 +13,30 @@ class TaskPolicy
         return $user->employee?->role?->slug === 'project-manager';
     }
 
-    private function isProjectMember(User $user, Project $project): bool
+    private function isTeamMember(User $user): bool
+    {
+        return $user->employee?->role?->slug === 'team-member';
+    }
+
+    private function isAssignedEmployee(User $user, Task $task): bool
     {
         $employeeId = $user->employee?->id;
 
-        if ($employeeId === null) {
-            return false;
-        }
-
-        return $project->members()->where('employee_id', $employeeId)->exists();
+        return $employeeId !== null
+            && (int) $task->assigned_employee_id === (int) $employeeId;
     }
 
-    /** User login boleh membuka daftar task. */
+    /** PM mengelola task. Member melihat My Task. */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $this->isPm($user) || $this->isTeamMember($user);
     }
 
-    /** PM melihat semua task. User lain harus menjadi anggota project. */
+    /** PM melihat semua task. Member melihat task miliknya. */
     public function view(User $user, Task $task): bool
     {
-        return $this->isPm($user) || $this->isProjectMember($user, $task->project);
+        return $this->isPm($user)
+            || ($this->isTeamMember($user) && $this->isAssignedEmployee($user, $task));
     }
 
     /** Hanya PM yang boleh membuat task. */
@@ -64,16 +67,9 @@ class TaskPolicy
         return $this->isPm($user);
     }
 
-    /** PM dapat mengubah semua status. Assignee hanya task miliknya. */
+    /** Member hanya dapat mengubah status task miliknya. */
     public function updateStatus(User $user, Task $task): bool
     {
-        if ($this->isPm($user)) {
-            return true;
-        }
-
-        $employeeId = $user->employee?->id;
-
-        return $employeeId !== null
-            && (int) $task->assigned_employee_id === (int) $employeeId;
+        return $this->isTeamMember($user) && $this->isAssignedEmployee($user, $task);
     }
 }
