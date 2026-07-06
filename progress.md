@@ -1,347 +1,795 @@
-# Project Progress Snapshot
+# Djitugo Project Management System — Implementation Progress
 
-Last updated: 2026-05-25 (Asia/Makassar)
-Source of truth: [context.md](./context.md)
-
-## Objective
-Build Djitugo Project Management System prototype with:
-- project/task management
-- threaded discussion (polymorphic owner + nested replies)
-- role-aware collaboration (PM, BD, Team Member)
+Source of truth: `AI_IMPLEMENTATION_HANDOFF.md`
 
 ---
 
-## Completed
+## Implementation Steps
 
-### 1) Database foundation
-- `roles`, `divisions`, `projects`, `tasks`, `project_members`, `attachments`, `messages`
-- `users` linked to `role_id` and `division_id`
-- `messages` uses polymorphic owner (`messageable_type`, `messageable_id`) + `parent_id`
-
-### 2) Eloquent model structure
-- Models and relationships for all core entities are in place.
-- Message relationships aligned with polymorphic architecture:
-  `Message::messageable()`, `Project::messages()` morphMany, `Task::messages()` morphMany
-
-### 3) Access control baseline
-- Policies: `ProjectPolicy`, `TaskPolicy`, `MessagePolicy`, `DivisionPolicy`
-- Middleware aliases: `project.access`, `task.access`, `message.access`
-- User helper methods for role and membership checks.
-
-### 4) Division lead feature
-- Added `divisions.lead_user_id` (nullable, unique FK to users).
-- Validation rule `ValidDivisionLead` (must be same division, not PM).
-- Endpoint: `PATCH /divisions/{division}/lead`
-
-### 5) PM transfer + audit
-- Endpoint: `POST /pm/transfer`
-- Transactional PM handover with row locking.
-- Audit table/model: `pm_transfer_logs`
-- Feature tests: `ProjectManagerTransferTest`
-
-### 6) Project management endpoints
-- `GET/POST /projects`, `GET/PATCH/DELETE /projects/{project}`
-- `POST /projects/{project}/members`, `DELETE /projects/{project}/members/{user}`
-- Request validations: `StoreProjectRequest`, `UpdateProjectRequest`, `AddProjectMemberRequest`
-- Feature tests: `ProjectManagementTest`
-
-### 7) Task management endpoints
-- `GET/POST /projects/{project}/tasks`, `GET/PATCH/DELETE /tasks/{task}`, `PATCH /tasks/{task}/status`
-- Request validations: `StoreTaskRequest`, `UpdateTaskRequest`, `UpdateTaskStatusRequest`
-- Business rules:
-  - Task statuses: `todo`, `in_progress`, `pending_review`, `done`
-  - BD cannot create tasks
-  - Regular members cannot directly set tasks to `done`
-  - `pending_review` and `done` states are locked for regular members
-- Feature tests: `TaskManagementTest`
-
-### 8) Threaded discussion endpoints
-- `GET/POST /projects/{project}/messages`, `GET/POST /tasks/{task}/messages`, `PATCH/DELETE /messages/{message}`
-- Request validations: `StoreMessageRequest`, `UpdateMessageRequest`
-- Business rules: reply parent must match owner context, PM can delete others' messages
-- Response returns nested tree via `replies[]`
-- Feature tests: `MessageThreadTest`
-
-### 9) My Tasks endpoint
-- `GET /my-tasks` — filters: `status`, `project_id`, `per_page` (default 15)
-- Sorted by due date (null last), paginated
-- Feature tests: `MyTaskEndpointTest`
-
-### 10) Timeline / Calendar / Performance reporting endpoints
-- `GET /reports/timeline`, `GET /reports/calendar`, `GET /reports/performance`
-- PM sees all; non-PM scoped to accessible projects
-- Feature tests: `ReportingContractTest`
-
-### 11) Database seeders
-- `RoleSeeder`, `DivisionSeeder`, `UserSeeder`, `ProjectSeeder`, `TaskSeeder`, `MessageSeeder`
-- `DatabaseSeeder` calls all in dependency order
-- `UserFactory` updated with `role_id`/`division_id` + state methods: `projectManager()`, `businessDeveloper()`, `teamMember()`
-- Run with: `php artisan migrate:fresh --seed`
-- Login accounts (password is always `password`):
-  - `pm@djitugo.test` → Project Manager, Engineering (Andi Pratama)
-  - `bd@djitugo.test` → Business Developer, Marketing (Budi Santoso)
-  - `member1@djitugo.test` → Team Member, Engineering (Citra Dewi)
-  - `member2@djitugo.test` → Team Member, Design (Deni Firmansyah)
-  - `member3@djitugo.test` → Team Member, Marketing (Eko Nugroho)
-
-### 12) Frontend foundation (TypeScript + layout)
-- `types/models.ts` — shapes for all entities: `Role`, `Division`, `AppUser`, `Project`, `Task`, `Message`, `PaginatedResponse<T>`, `CalendarDay`, `PerformanceMetrics`
-- `types/auth.ts` — `User` extended with `role` and `division`
-- `types/index.ts` — re-exports everything from `@/types`
-- `HandleInertiaRequests.php` — eager-loads `role` + `division` on every response
-- `hooks/use-auth-user.ts` — `isProjectManager()`, `isBusinessDeveloper()`, `isTeamMember()`, `roleSlug`
-- `components/nav-main.tsx` — `label` prop added for sidebar group names
-- `components/app-sidebar.tsx` — full nav: Dashboard, Projects, My Tasks | Reports: Timeline, Calendar, Performance
-
-### 13) Projects Index page (`/projects`)
-- `ProjectController::index()` → `Inertia::render('projects/index')`
-- `ProjectController::store()` → `redirect()->route('projects.show', $project)`
-- `ProjectController::destroy()` → `redirect()->route('projects.index')`
-- `pages/projects/index.tsx`:
-  - Responsive card grid (1 → 2 → 3 columns)
-  - Each card: status badge, due date, name, description (2-line), member count, task count, View button
-  - Empty state (PM vs non-PM message)
-  - Create Project dialog (PM only): name, description, start/due date
-  - `useForm` for loading state + validation errors, `useAuthUser()` for role-gating
-
-### 14) Project Show page (`/projects/{id}`)
-- `ProjectController::show()` → `Inertia::render('projects/show')` with eager-loaded:
-  `creator`, `users.role` (members), `tasks.assignee`
-- `assignees` list (creator + members combined) passed separately for task form dropdown
-- `TaskController::store()` → `redirect()->back()`
-- `TaskController::updateStatus()` → `redirect()->back()`
-- `TaskController::destroy()` → `redirect()->back()`
-- `pages/projects/show.tsx`:
-  - **Info header**: name, status badge, date range, creator, description
-  - **Task list**:
-    - Colored task workflow states (`todo`, `in_progress`, `pending_review`, `done`)
-    - Members can request review through contextual "Request Review" action
-    - `pending_review` and `done` displayed as locked workflow badges for non-PM users
-    - title, assignee, due date, delete button (PM only), `window.confirm()` on delete
-  - **Add Task dialog** (PM only): title, description, assign to (dropdown), priority, start/due date
-  - **Members grid**: avatar initials, name, role name
-  - Project show page refactored into smaller reusable task/thread components
-
-### 15) Threaded Discussion UI — Project & Task Integration
-- **Project-level thread** integrated into `pages/projects/show.tsx`
-- Uses reusable `<ThreadSection>` component
-- Displays project-wide threaded discussion with nested replies
-- Task-level discussion integrated into contextual sheet flow:
-  - `<TaskThreadSheet>` component
-  - lazy-loaded task messages
-  - nested replies
-  - edit/delete authorization support
-- `useTaskThread()` centralizes:
-  - selected task state
-  - lazy fetching
-  - task sheet state
-  - URL synchronization
-- Task thread deep-link flow implemented:
-  - `/projects/{project}?task={task}`
-  - auto-open on page load
-  - URL cleanup when sheet closes
-- `TaskRow`, `CreateTaskDialog`, and thread flow extracted into reusable components
-- Architecture intentionally keeps task discussion contextual to workspace flow instead of dedicated task detail pages
-
-### 16) My Tasks page (`/my-tasks`)
-- `TaskController::myTasks()` → `Inertia::render('tasks/my-tasks')`
-- Frontend page: `pages/tasks/my-tasks.tsx`
-- Backend supports:
-  - status filters
-  - project filters
-  - pagination
-- Frontend includes:
-  - grouped task list by project
-  - project filter dropdown
-  - pagination controls
-  - inline status updates
-  - task thread integration via reusable `TaskThreadSheet`
-- Sorted by due date (null last)
-- Feature tests: `MyTaskEndpointTest`
-
-### 17) Reports pages (`/reports/*`)
-- `ReportingController::timeline()` → `Inertia::render('reports/timeline')`
-- `ReportingController::calendar()` → `Inertia::render('reports/calendar')`
-- `ReportingController::performance()` → `Inertia::render('reports/performance')`
-- Frontend pages:
-  - `pages/reports/timeline.tsx`
-  - `pages/reports/calendar.tsx`
-  - `pages/reports/performance.tsx`
-- Reports scoped to accessible projects:
-  - PM sees all
-  - non-PM scoped to joined/created projects
-- Timeline supports:
-  - `project_id`
-  - `status`
-  - `start_date`
-  - `end_date`
-- Calendar supports:
-  - `project_id`
-  - `month`
-- Performance supports:
-  - `project_id`
-- `pending_review` integrated into metrics/report filtering
-- `ReportingContractTest` updated for Inertia responses
-
-### 18) Dashboard page (`/dashboard`)
-- `DashboardController::index()` → `Inertia::render('dashboard')`
-- Dashboard statistics scoped to accessible projects/tasks
-- Dashboard cards implemented:
-  - accessible projects count
-  - assigned tasks count
-  - pending review count
-  - overdue task count
-- Recent activity feed implemented:
-  - project updates
-  - task updates
-  - thread/message activity
-- Activities merged and sorted by latest timestamp
-- Activity items support:
-  - contextual labels
-  - relative timestamps
-  - clickable navigation
-  - activity icons by type
-- Dashboard task activities support contextual deep-link flow:
-  `/projects/{project}?task={task}`
-- Dashboard intentionally follows lightweight workspace-oriented design rather than analytics-heavy reporting UI
+| Step | Scope | Status |
+|---|---|---|
+| 1 | Migration alignment | ✅ Complete |
+| 2 | Model alignment | ✅ Complete |
+| 3 | Seeder and factory alignment | ✅ Complete |
+| 4 | Controller / use-case alignment | ⏳ In Progress (4A + 4B.1 + 4B.2 + 4B.3 + 4B.4 + 4B.5 + 4B.6 + 4B.7 + 4B.8 done) |
 
 ---
 
-## In Progress
-- Nothing active right now.
+## Session Log
 
 ---
 
-## Pending (Next Work Queue)
+### Session 1 — Migration Refactor
 
-Ordered by priority relative to context.md scope:
+**Scope:** Step 1 — database migrations only. No models, seeders, factories, controllers, or UI modified.
 
-### Priority 1 — Approval/review workflow refinement
-- Expand approval/rejection interaction inside `TaskThreadSheet`
-- Refine PM review flow for `pending_review` tasks
-- Keep workflow embedded inside existing task thread architecture
+**Audit performed before implementation:**
+- Full database layer audit against `AI_IMPLEMENTATION_HANDOFF.md`.
+- Identified legacy schema, missing entities, out-of-scope tables, and FK naming mismatches.
+- Two audit revisions produced: first permissive, second strict (final design authoritative).
+- Final implementation plan approved before any file was touched.
 
-### Priority 2 — Polish and cleanup
-- Continue UX polish and frontend refinement
-- Improve loading states and empty states
-- Small responsive layout refinements
-- Optional optimistic UI improvements
+**Migration changes applied:**
 
-### Deferred (nice-to-have, not core scope)
-- Division-based project creation with division selector and auto-add of division members
-- Add/remove member UI on project show page (backend exists, frontend not implemented)
+*Modified (5 files):*
+- `0001_01_01_000000_create_users_table.php` — auth-only schema; removed `name`; merged Fortify 2FA columns inline from deleted patch migration.
+- `2026_04_10_041533_create_projects_table.php` — removed `created_by` (not in approved Project attributes).
+- `2026_04_10_041534_create_tasks_table.php` — replaced `assigned_to` (FK → users) with `assigned_employee_id` (FK → employees, nullOnDelete); removed `created_by`, `priority`, `completed_at`, `position`.
+- `2026_04_10_041536_create_project_members_table.php` — replaced `user_id` → `employee_id` (FK → employees); renamed `joined_at` → `date_joined`; removed `added_by`; added `is_leader boolean default false`.
+- `2026_04_10_041539_create_messages_table.php` — replaced entire schema; removed polymorphic columns (`user_id`, `messageable_type`, `messageable_id`, `parent_id`, `edited_at`); new columns: `thread_id` (FK → threads), `sender_id` (FK → employees), `message_body`.
 
----
+*Deleted (5 files):*
+- `2025_08_14_170933_add_two_factor_columns_to_users_table.php` — merged into `create_users_table`.
+- `2026_04_10_041537_create_attachments_table.php` — out of approved scope.
+- `2026_04_10_041540_add_role_and_division_to_users_table.php` — `role_id`/`division_id` moved to `employees`.
+- `2026_05_06_161958_add_lead_user_id_to_divisions_table.php` — `lead_user_id` not in approved ERD.
+- `2026_05_06_163529_create_pm_transfer_logs_table.php` — out of approved scope.
 
-## Decisions Locked
-- Task statuses are fixed to: `todo`, `in_progress`, `pending_review`, `done`
-- BD cannot create tasks
-- Only PM can delete other users' messages
-- PM rule is soft: at most one active PM. Transfer via dedicated endpoint only
-- `store()` / `destroy()` → redirect-based Inertia flow
-- `updateStatus()` → `redirect()->back()`
-- Polymorphic message schema is final
-- Project thread is eager-loaded; task thread is lazy-loaded
-- Thread UI intentionally limits visible nesting depth to 1 level
-- Dashboard direction is activity-centric instead of analytics-centric
-- Project page acts as the primary collaborative workspace
-- Task discussion remains contextual to workspace flow instead of standalone detail pages
-- Task thread routing uses contextual deep-link pattern:
-  `/projects/{project}?task={task}`
-- Future activity indicators should remain lightweight and localStorage-based
-- Avoid websocket, realtime sync, polling, or enterprise notification systems within TA scope
-- Shared UI logic should prioritize reusable presentational components over complex abstractions
-- Existing frontend patterns should remain:
-  - `useForm`
-  - `router.patch/delete`
-  - Tailwind/native controls
-  - `useAuthUser()` role checks
-- Prefer local component state and prop passing over global state libraries
+*Created (3 files):*
+- `2026_04_10_041532_create_employees_table.php` — `user_id` (unique, FK → users), `role_id` (FK → roles), `division_id` (FK → divisions), `name`, `phone`, `address`, `avatar_url`, `status`.
+- `2026_04_10_041537_create_threads_table.php` — `task_id` (unique FK → tasks); unique constraint enforces one Task → one Thread.
+- `2026_04_10_041540_create_message_project_table.php` — `project_id` (FK → projects), `sender_id` (FK → employees), `message_body`; table name `message_project` per approved ERD.
 
-- Planned workflow refinement:
-  - PM can create and assign tasks
-  - Team Leads may directly complete owned/managed tasks
-  - Regular members must request approval before completion
-  - Proof/revision discussion remains inside task thread flow
-  - Approval/rejection interactions remain embedded in `TaskThreadSheet`
+**Final migration execution order (12 migrations):**
+```
+0001_01_01_000000  create_users_table
+0001_01_01_000001  create_cache_table
+0001_01_01_000002  create_jobs_table
+2026_04_10_041529  create_roles_table
+2026_04_10_041531  create_divisions_table
+2026_04_10_041532  create_employees_table
+2026_04_10_041533  create_projects_table
+2026_04_10_041534  create_tasks_table
+2026_04_10_041536  create_project_members_table
+2026_04_10_041537  create_threads_table
+2026_04_10_041539  create_messages_table
+2026_04_10_041540  create_message_project_table
+```
 
----
+**Validation:**
+```
+php artisan migrate:fresh
+```
+Result: 12 migrations, 0 errors.
 
-## Known Issues / Risks
-1. **Role seed dependency**
-   PM transfer expects `roles.slug = project-manager`
-
-2. **Authorization helper**
-   Base `Controller` has no `AuthorizesRequests`
-   Use `Gate::authorize()`
-
-3. **Thread performance**
-   Deep nested replies may become expensive without pagination
-
-4. **Wayfinder route generation**
-   `resources/js/routes/index.ts` auto-generates on `npm run dev`
-
-5. **Activity indicators are browser-local only**
-   Clearing local storage resets seen state
-   Acceptable within TA prototype scope
+**Schema verified against `AI_IMPLEMENTATION_HANDOFF.md`:** no remaining mismatches.
 
 ---
 
-## Minor refinement backlog
-- Thread activity indicator polish
-- Loading/empty state refinement
-- Small responsive adjustments
-- Approval/rejection interaction refinement inside `TaskThreadSheet`
-- Further reuse of `TaskThreadSheet` across task-centric flows
+### Session 2 — Model Alignment
+
+**Scope:** Step 2 — Eloquent models only. No migrations, seeders, factories, controllers, policies, or UI modified.
+
+*Deleted (2 files):*
+- `app/Models/Attachment.php` — table removed in Step 1; model was dead code.
+- `app/Models/PmTransferLog.php` — table removed in Step 1; model was dead code.
+
+*Created (3 files):*
+- `app/Models/Employee.php` — `$fillable`: user_id, role_id, division_id, name, phone, address, avatar_url, status. Relations: `user()`, `role()`, `division()`, `projectMemberships()`, `assignedTasks()`, `sentMessages()`, `sentProjectMessages()`.
+- `app/Models/Thread.php` — `$fillable`: task_id. Relations: `task()`, `messages()`.
+- `app/Models/ProjectMessage.php` — `$table = 'message_project'`. `$fillable`: project_id, sender_id, message_body. Relations: `project()`, `sender()`.
+
+*Modified (7 files):*
+- `app/Models/User.php` — `$fillable`: email, password, email_verified_at. Added `employee()` HasOne. Removed: name, role_id, division_id from fillable; all legacy relations (`role()`, `division()`, `leadedDivision()`, `managedProjects()`, `createdTasks()`, `assignedTasks()`, `uploadedAttachments()`, `messages()`, `projects()`, `projectMemberships()`); all helper methods (`hasRole()`, `isProjectManager()`, `isProjectMember()`, `isDivisionLead()`, `canLeadDivision()`).
+- `app/Models/Role.php` — replaced `users()` HasMany → `employees()` HasMany Employee.
+- `app/Models/Division.php` — replaced `users()` HasMany → `employees()` HasMany Employee. Removed: `lead_user_id` from fillable, `lead()` BelongsTo, `isLedBy()`.
+- `app/Models/Project.php` — removed `creator()` BelongsTo, `users()` BelongsToMany. Replaced `messages()` MorphMany → `projectMessages()` HasMany ProjectMessage. Removed `created_by` from fillable.
+- `app/Models/Task.php` — removed `creator()` BelongsTo, `attachments()` HasMany. Replaced `assignee()` target from User → Employee via `assigned_employee_id`. Replaced `messages()` MorphMany → `thread()` HasOne Thread. Removed legacy fields from fillable (`created_by`, `assigned_to`, `priority`, `completed_at`, `position`).
+- `app/Models/ProjectMember.php` — replaced `user_id` → `employee_id` in fillable. Renamed `joined_at` → `date_joined`. Removed `added_by` from fillable. Replaced `user()` BelongsTo → `employee()` BelongsTo Employee. Removed `addedBy()`. Added casts: `is_leader` → boolean, `date_joined` → date.
+- `app/Models/Message.php` — complete rewrite. `$fillable`: thread_id, sender_id, message_body. Relations: `thread()` BelongsTo Thread, `sender()` BelongsTo Employee. Removed all polymorphic relations and legacy fields.
+
+**Validation:**
+```
+php artisan migrate:fresh
+```
+Result: 12 migrations, 0 errors.
+
+```
+php -l app/Models/*.php
+```
+Result: No syntax errors detected in all 10 model files.
+
+```
+php artisan model:show [all models]
+```
+Result: All models resolved correct tables, attributes, casts, and relationships. No errors.
+
+**Remaining notes:**
+- Existing policies (`ProjectPolicy`, `TaskPolicy`, `MessagePolicy`, `DivisionPolicy`) were detected but not modified. They may reference removed relationships. Policy alignment is deferred to Step 4.
 
 ---
 
-## Notes For Future Agent Sessions
-- Read `context.md` first, then this file
-- API docs: `api-contract.md`
-- Endpoint mapping: `backend-endpoint-guide.md`
-- Password for all seeded accounts: `password`
-- `npm run dev` must run alongside Laragon
+### Pre-Step 3 Correction — Remove `employees.status`
 
-### Frontend patterns established
-- Role checks via `useAuthUser()`
-- Forms via Inertia `useForm`
-- Non-form mutations via `router.patch/delete`
-- Shared types from `@/types`
-- Native `<select>` with Tailwind styling preferred
-- `window.confirm()` used for lightweight delete confirmation
+`employees.status` was identified as not part of the final ERD. Removed before Step 3 proceeded.
 
-### Scope guard
-- Keep within TA prototype scope
-- No enterprise workflow expansion
-- No super-admin system
-- Do not reduce collaboration/thread system into plain CRUD
+*Modified:*
+- `2026_04_10_041532_create_employees_table.php` — removed `status` column.
+- `app/Models/Employee.php` — removed `status` from `$fillable`.
+
+Final Employee fields: `user_id`, `role_id`, `division_id`, `name`, `phone`, `address`, `avatar_url`.
+
+Validation after correction:
+```
+php artisan migrate:fresh
+```
+Result: 12 migrations, 0 errors.
 
 ---
 
-## Suggested Commit Scopes
+### Session 3 — Seeder and Factory Alignment
 
-### Backend (done)
-1. `feat(project): implement project + member management endpoints`
-2. `feat(task): implement task CRUD and status flow`
-3. `feat(thread): implement polymorphic threaded discussion endpoints`
-4. `feat(my-task): implement current-user task endpoint`
-5. `feat(reporting): implement timeline calendar and performance contracts`
+**Scope:** Step 3 — seeders and factories only. No migrations or models modified.
 
-### Frontend (done)
-6. `feat(inertia): share role and division in Inertia shared data`
-7. `feat(types): add shared model types for all backend entities`
-8. `feat(hooks): add useAuthUser hook for role-aware UI`
-9. `feat(nav): update sidebar with full app navigation`
-10. `feat(seed): add seeders and update UserFactory`
-11. `feat(projects): projects index page with create dialog`
-12. `feat(projects): project show page with task list and members`
-13. `test(messages): comprehensive message thread tests`
-14. `feat(thread): integrate discussion thread into project and task contexts`
-15. `feat(my-tasks): my tasks page with grouped task list and task thread access`
-16. `feat(reports): timeline, calendar, and performance report pages`
-17. `feat(dashboard): implement activity-centric dashboard with contextual navigation`
+*Seeders kept unchanged (2):*
+- `database/seeders/RoleSeeder.php`
+- `database/seeders/DivisionSeeder.php`
 
-### Frontend (future)
-18. `feat(task-review): refine approval and rejection interaction flow`
-19. `polish(ui): improve loading, activity, and responsive states`
+*Seeders rewritten (4):*
+- `database/seeders/UserSeeder.php` — creates `User` (auth only: email, password, email_verified_at), then `Employee` (profile: user_id, role_id, division_id, name) per account. Division lead assignments removed entirely.
+- `database/seeders/ProjectSeeder.php` — removed `created_by` from Project creation. ProjectMember uses `employee_id`, `date_joined`, `is_leader`. PM is NOT inserted as ProjectMember. One Team Member per project marked `is_leader = true`.
+- `database/seeders/TaskSeeder.php` — uses `assigned_employee_id` (FK → employees). Removed `created_by`, `priority`, `completed_at`, `position`.
+- `database/seeders/MessageSeeder.php` — complete rewrite. Project messages use `ProjectMessage::create()` directly. Task messages use `Thread::firstOrCreate()` + `Message::create()`. No polymorphism, no `parent_id`.
+
+*Factories rewritten (1):*
+- `database/factories/UserFactory.php` — auth-only `definition()`: email, password, email_verified_at, remember_token, 2FA nullable fields. Removed: name, role_id, division_id, role state methods. Kept: `unverified()`, `withTwoFactor()`.
+
+*Factories created (1):*
+- `database/factories/EmployeeFactory.php` — `definition()`: user_id (via `User::factory()`), role_id (null), division_id (null), name, phone/address/avatar_url (null). State methods: `projectManager()`, `businessDeveloper()`, `teamMember()`, `inDivision(string $code)`.
+
+**Validation:**
+```
+php artisan migrate:fresh
+```
+Result: 12 migrations, 0 errors.
+
+```
+php artisan migrate:fresh --seed
+```
+Result: 12 migrations + 6 seeders (RoleSeeder, DivisionSeeder, UserSeeder, ProjectSeeder, TaskSeeder, MessageSeeder) — 0 errors.
+
+---
+
+### Session 4 — Step 4A: Access Control, Route Cleanup, Out-of-Scope Removal
+
+**Scope:** Policies, middleware, routes, out-of-scope feature deletion. No business controllers, migrations, models, seeders, or factories modified.
+
+*Deleted — out-of-scope features (7 files):*
+- `app/Http/Controllers/DivisionLeadController.php`
+- `app/Http/Controllers/ProjectManagerTransferController.php`
+- `app/Http/Controllers/ReportingController.php`
+- `app/Policies/DivisionPolicy.php`
+- `app/Http/Requests/Admin/TransferProjectManagerRequest.php`
+- `app/Http/Requests/Division/UpdateDivisionLeadRequest.php`
+- `app/Rules/ValidDivisionLead.php`
+
+*Deleted — out-of-scope frontend:*
+- `resources/js/pages/reports/` (4 pages: calendar, performance, project-timeline, timeline)
+- `resources/js/components/reports/` (all report sub-components)
+
+*Policies rewritten (3):*
+- `ProjectPolicy` — role via `employee.role.slug`; membership via `project_members.employee_id`. PM-only for create/update/delete/manageMembers/manageTasks. PM or member for view.
+- `TaskPolicy` — same role pattern. PM-only for create/update/delete. updateStatus: PM or assigned employee (`assigned_employee_id`).
+- `MessagePolicy` — access via `message.thread.task.project` membership. update/delete: PM or sender (`sender_id`).
+
+*Middleware rewritten (4):*
+- `HandleInertiaRequests` — shares `user.load('employee.role', 'employee.division')` instead of `user.load('role', 'division')`.
+- `ProjectAccess` — PM bypass; others checked via `project_members.employee_id`.
+- `TaskAccess` — PM bypass; others checked via task project membership.
+- `MessageAccess` — PM bypass; resolves project through `message.thread.task.project`.
+
+*Routes cleaned (`routes/web.php`):*
+- Removed: `divisions/{division}/lead`, `pm/transfer`, all `reports/*` routes.
+- Fixed: member route parameter renamed from `{user}` to `{employee}`.
+- Result: 30 routes (all approved use cases, no out-of-scope routes).
+
+*Provider fixed:*
+- `AppServiceProvider` — removed `DivisionPolicy` registration.
+
+*Sidebar updated:*
+- `app-sidebar.tsx` — removed Reports section and all report nav items.
+
+**Validation:**
+```
+php -l [all modified PHP files]
+```
+Result: No syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 30 routes, 0 errors. No reporting/division/PM-transfer routes present.
+
+---
+
+### Session 5 — Step 4B.1: Project + Task Backend Alignment
+
+**Scope:** Project and Task backend only. No MessageController, DashboardController, UserController, auth/profile, frontend, migrations, models, seeders, factories, policies, or middleware modified.
+
+*Modified controllers (2):*
+- `app/Http/Controllers/ProjectController.php`
+  - Replaced legacy `users()` pivot access with `ProjectMember` / `members`.
+  - Project access filtering now uses authenticated user's `employee.id`.
+  - Project create/update member sync uses `employee_id`, `date_joined`, `is_leader`.
+  - PM is not auto-added as project member.
+  - Project show loads `members.employee`, `tasks.assignee`, and `projectMessages`.
+  - Removed legacy use of `created_by`, user pivot, `added_by`, `joined_at`, polymorphic project messages, and creator/member user merge.
+- `app/Http/Controllers/TaskController.php`
+  - My Task now filters by `assigned_employee_id`.
+  - Project task list and task detail load Employee assignee data.
+  - Task create/update use only approved task fields.
+  - Task status update writes only `status`; no `completed_at`.
+  - Removed legacy use of `assigned_to`, `created_by`, `priority`, `completed_at`, `position`, and task creator relation.
+
+*Modified requests (6):*
+- `StoreProjectRequest` — `member_ids.*` now validates against `employees.id`.
+- `UpdateProjectRequest` — `member_ids.*` now validates against `employees.id`.
+- `AddProjectMemberRequest` — accepts `employee_id`, optional `is_leader`; uniqueness checks `project_members.employee_id`.
+- `StoreTaskRequest` — accepts `assigned_employee_id`; validates assignee is a project member.
+- `UpdateTaskRequest` — accepts `assigned_employee_id`; validates assignee is a project member.
+- `UpdateTaskStatusRequest` — authorization delegates to `TaskPolicy::updateStatus`; status validation remains approved enum.
+
+**Validation:**
+```
+php -l app/Http/Controllers/ProjectController.php
+php -l app/Http/Controllers/TaskController.php
+php -l app/Http/Requests/Project/StoreProjectRequest.php
+php -l app/Http/Requests/Project/UpdateProjectRequest.php
+php -l app/Http/Requests/Project/AddProjectMemberRequest.php
+php -l app/Http/Requests/Task/StoreTaskRequest.php
+php -l app/Http/Requests/Task/UpdateTaskRequest.php
+php -l app/Http/Requests/Task/UpdateTaskStatusRequest.php
+```
+Result: No syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 30 routes, 0 errors.
+
+```
+php artisan test tests/Feature/ProjectManagementTest.php tests/Feature/TaskManagementTest.php tests/Feature/MyTaskEndpointTest.php
+```
+Result: 11 failed, 1 passed. Failures occur before scoped endpoint assertions because old tests still create users with removed `role_id` column. Test update is deferred; no production code widened outside Step 4B.1.
+
+---
+
+### Session 6 — Step 4B.2: Message Flow Alignment
+
+**Scope:** Message flow only. No migrations, models, seeders, factories, ProjectController, TaskController, DashboardController, UserController/auth/profile, frontend, policies, middleware, or unrelated routes modified.
+
+*Modified controller (1):*
+- `app/Http/Controllers/MessageController.php`
+  - Project messages now read/write `ProjectMessage` directly through `message_project`.
+  - Task messages now read/write `Message` through `Thread`.
+  - Task thread is resolved with `Thread::firstOrCreate(['task_id' => $task->id])`.
+  - Sender is stored as authenticated user's `employee.id`.
+  - Removed all nested reply tree logic.
+  - Removed legacy polymorphic message handling.
+  - Update/delete remain task-thread `Message` operations and use `message_body`.
+
+*Modified requests (2):*
+- `StoreMessageRequest` — validates only `message_body`; removed `parent_id` and reply context validation.
+- `UpdateMessageRequest` — validates `message_body`.
+
+*Routes:*
+- No route change required. Existing project-message and task-message routes already match final split flow.
+
+**Final flows:**
+```
+ProjectDetailPage
+→ MessageController@storeProject
+→ ProjectMessage(project_id, sender_id, message_body)
+```
+
+```
+TaskDetailPage
+→ MessageController@storeTask
+→ Thread(firstOrCreate by task_id)
+→ Message(thread_id, sender_id, message_body)
+```
+
+**Validation:**
+```
+php -l app/Http/Controllers/MessageController.php
+php -l app/Http/Requests/Message/StoreMessageRequest.php
+php -l app/Http/Requests/Message/UpdateMessageRequest.php
+```
+Result: No syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 30 routes, 0 errors.
+
+```
+rg -n "messageable_type|messageable_id|user_id|parent_id|\bbody\b|edited_at|messageable\(|author\(|replies|buildThreadTree" app/Http/Controllers/MessageController.php app/Http/Requests/Message
+```
+Result: No matches.
+
+```
+php artisan test tests/Feature/MessageThreadTest.php
+```
+Result: 14 failed, 0 assertions. Failures occur before endpoint assertions because old tests still create users with removed `role_id` column. Test file also still asserts removed polymorphic/nested-reply behavior (`messageable_*`, `parent_id`, `body`, `replies`) and needs Employee/message-flow rewrite later.
+
+---
+
+### Session 7 — Step 4B.3: User Management Alignment
+
+**Scope:** Approved Kelola User use case only. No migrations, models, seeders, factories, ProjectController, TaskController, MessageController, DashboardController, auth/profile files, completed policies, or middleware modified.
+
+*Created backend (3 files):*
+- `app/Http/Controllers/UserController.php`
+  - `index()` lists users with `employee.role` and `employee.division`.
+  - `store()` creates `User` and `Employee` together in a DB transaction.
+  - `update()` updates `User` auth fields and `Employee` profile fields together in a DB transaction.
+  - `destroy()` deletes the `User`; `employees.user_id` cascades, then employee-related FKs apply existing schema behavior.
+  - Authorization is Project Manager only via `employee.role.slug`.
+- `app/Http/Requests/User/StoreUserRequest.php`
+  - Validates `email`, `password`, and Employee fields: `name`, `role_id`, `division_id`, `phone`, `address`, `avatar_url`.
+- `app/Http/Requests/User/UpdateUserRequest.php`
+  - Validates unique email ignoring current user, optional password, and Employee fields.
+
+*Modified routes (1 file):*
+- `routes/web.php`
+  - Added authenticated/verified user management routes:
+    - `GET /users`
+    - `POST /users`
+    - `PATCH /users/{user}`
+    - `DELETE /users/{user}`
+
+*Created frontend (1 file):*
+- `resources/js/pages/users/index.tsx`
+  - Minimal Inertia page for list/create/edit/delete user management.
+  - Uses role and division master data as selectors.
+  - Uses Employee fields for name, role, division, phone, address, avatar URL.
+
+**Final user-management flow:**
+```
+UserController@index
+→ User::with(employee.role, employee.division)
+→ roles/divisions master data
+→ users/index page
+```
+
+```
+UserController@store
+→ validate request
+→ DB transaction
+→ create User(email, password, email_verified_at)
+→ create Employee(user_id, role_id, division_id, name, phone, address, avatar_url)
+```
+
+```
+UserController@update
+→ validate request
+→ DB transaction
+→ update User(email, optional password)
+→ updateOrCreate Employee(user_id, role_id, division_id, name, phone, address, avatar_url)
+```
+
+```
+UserController@destroy
+→ delete User
+→ employees.user_id cascadeOnDelete
+→ project_members/messages/project_messages cascade by employee FK
+→ tasks.assigned_employee_id nullOnDelete
+```
+
+**Validation:**
+```
+php -l app/Http/Controllers/UserController.php
+php -l app/Http/Requests/User/StoreUserRequest.php
+php -l app/Http/Requests/User/UpdateUserRequest.php
+```
+Result: No syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 34 routes, 0 errors.
+
+```
+npm run types
+```
+Result: TypeScript check passed.
+
+Focused user-management tests: none available.
+
+Scoped legacy-field scan:
+- Broad scan finds `name`, `role_id`, and `division_id` only in Employee/form/request contexts.
+- Targeted scan found no direct write of `role_id`, `division_id`, `name`, or `status` into `users`.
+
+---
+
+### Session 8 — Step 4B.4: Dashboard Alignment
+
+**Scope:** Dashboard only. No migrations, models, seeders, factories, ProjectController, TaskController, MessageController, UserController, auth/profile files, completed policies, middleware, reports routes, or unrelated frontend pages modified.
+
+*Modified backend (1 file):*
+- `app/Http/Controllers/DashboardController.php`
+  - Replaced legacy dashboard implementation with approved dashboard contract.
+  - Role visibility now uses `user.employee.role.slug`.
+  - Non-PM visibility uses `project_members.employee_id`.
+  - Removed project activity aggregation and message activity aggregation.
+  - Removed legacy direct use of `created_by`, `assigned_to`, and polymorphic message logic.
+
+*Modified frontend dashboard wiring (2 files):*
+- `resources/js/pages/dashboard.tsx`
+  - Renders six approved summary widgets.
+  - Renders recent activities, incoming due tasks, calendar items, selected-date deadlines, and project timeline.
+- `resources/js/components/dashboard/recent-activity-list.tsx`
+  - Now renders task update activity only, using `taskTitle`, `projectName`, `status`, and `updatedAt`.
+  - Does not claim a status change occurred.
+
+*Routes:*
+- No dashboard route change required.
+
+**Widget query behavior:**
+- Total Project: visible projects.
+- Active Project: visible projects with `status = active`.
+- Completed Project: visible projects with `status = completed`.
+- Overdue Project: visible non-completed projects with `due_date < today`.
+- Total Task: tasks under visible projects.
+- Unfinished Task: tasks under visible projects with `status != done`.
+
+**Dashboard sections:**
+- Recent Activities: source only from `Task.updated_at`; returns `taskTitle`, `projectName`, `status`, `updatedAt`, and URL.
+- Incoming Due Tasks: unfinished tasks with `due_date` from today through the next 7 days.
+- Calendar: queries Project due dates and Task due dates separately, then merges in controller.
+- Selected-Date Deadlines: filters Project and Task due dates separately by selected date, then merges in controller.
+- Timeline: source only from Project.
+
+**Validation:**
+```
+php -l app/Http/Controllers/DashboardController.php
+```
+Result: No syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 34 routes, 0 errors.
+
+```
+php artisan test tests/Feature/DashboardTest.php
+```
+Result: 2 passed.
+
+```
+rg -n "created_by|assigned_to|users\.role_id|messageable_type|messageable_id|Message::|ProjectMessage|ReportingController|reports" app/Http/Controllers/DashboardController.php
+```
+Result: No matches.
+
+```
+npm run types
+```
+Result: TypeScript check passed.
+
+---
+
+### Session 9 — Step 4B.5: Profile and Auth Compatibility Alignment
+
+**Scope:** Registration/profile compatibility only. No migrations, models, seeders, factories, project/task/message/user/dashboard controllers, completed policies, middleware, or unrelated frontend pages modified.
+
+*Modified backend (2 files):*
+- `app/Actions/Fortify/CreateNewUser.php`
+  - Registration now creates `User` and `Employee` in a DB transaction.
+  - User receives auth fields only: `email`, `password`.
+  - Employee receives `user_id`, default role, null division, and `name`.
+  - Default role is existing `team-member` role when present; no new role is created.
+  - Default division is `null` because registration form has no division selector and `employees.division_id` is nullable.
+- `app/Http/Controllers/Settings/ProfileController.php`
+  - Profile update now runs in a DB transaction.
+  - User update writes only `email`.
+  - Email verification reset remains unchanged when email changes.
+  - Employee update writes `name` via `user->employee()->updateOrCreate()`.
+
+*Unchanged scoped backend (2 files inspected):*
+- `app/Concerns/ProfileValidationRules.php`
+- `app/Http/Requests/Settings/ProfileUpdateRequest.php`
+
+*Modified scoped frontend (1 file):*
+- `resources/js/pages/settings/profile.tsx`
+  - Profile form now reads name from `auth.user.employee.name` instead of `auth.user.name`.
+
+**Registration flow:**
+```
+Fortify registration
+→ CreateNewUser
+→ validate name/email/password
+→ DB transaction
+→ create User(email, password)
+→ create Employee(user_id, role_id = team-member if seeded, division_id = null, name)
+```
+
+**Profile update flow:**
+```
+ProfileController@update
+→ validate name/email
+→ DB transaction
+→ update User(email)
+→ reset email_verified_at when email changes
+→ updateOrCreate Employee(name)
+```
+
+**Validation:**
+```
+php -l app/Actions/Fortify/CreateNewUser.php
+php -l app/Concerns/ProfileValidationRules.php
+php -l app/Http/Requests/Settings/ProfileUpdateRequest.php
+php -l app/Http/Controllers/Settings/ProfileController.php
+```
+Result: No syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 34 routes, 0 errors.
+
+```
+php artisan test tests/Feature/Auth/RegistrationTest.php tests/Feature/Settings/ProfileUpdateTest.php
+```
+Result: Registration tests passed. Profile tests: 4 passed, 1 failed. Failure is stale test expecting `users.name`; final schema stores profile name on `employees.name`.
+
+Scoped direct-user-write scan:
+- No direct write of `name`, `role_id`, `division_id`, or `status` into `users`.
+- Broad scan still finds those fields in Employee/default-role/form contexts, as expected.
+
+```
+npm run types
+```
+Result: TypeScript check passed.
+
+---
+
+### Session 10 — Step 4B.6: Frontend Type Alignment, Affected Component Alignment, and Public Registration Access Cleanup
+
+**Scope:** Frontend types, affected project/task/message/auth UI wiring, and Fortify registration route access only. No migrations, models, seeders, factories, backend business controllers, DashboardController, UserController, MessageController, completed requests, policies, or middleware modified.
+
+*Modified frontend types (3 files):*
+- `resources/js/types/models.ts`
+  - Added final `Employee`, `ProjectMember`, `Thread`, `Message`, and `ProjectMessage` shapes.
+  - Project uses `members`, `tasks`, `project_messages`, `members_count`, and `tasks_count`.
+  - Task uses `assigned_employee_id` and `assignee`.
+  - Messages use `message_body` and `sender`.
+- `resources/js/types/auth.ts`
+  - Auth user now exposes `employee.role` and `employee.division`.
+  - Removed direct auth assumptions for `user.name`, `user.role`, and `user.division`.
+- `resources/js/types/project.ts`
+  - Replaced `AvailableUser` with `AvailableEmployee`.
+
+*Modified affected frontend flow (10 files):*
+- `resources/js/hooks/use-auth-user.ts` — role checks now read `user.employee.role.slug`.
+- `resources/js/components/user-info.tsx` and `resources/js/components/app-header.tsx` — display Employee name/avatar with email fallback.
+- `resources/js/pages/projects/index.tsx` — reads `availableEmployees` and `members_count`.
+- `resources/js/pages/projects/show.tsx` — reads `project.members`, `projectMessages`, and Employee assignees.
+- `resources/js/components/projects/project-form.tsx` — member selectors use Employee IDs.
+- `resources/js/components/tasks/create-task-dialog.tsx` — submits `assigned_employee_id`; removed priority UI.
+- `resources/js/components/tasks/task-row.tsx` — status permission compares authenticated Employee ID to `assigned_employee_id`.
+- `resources/js/components/tasks/task-thread-sheet.tsx` — sends task messages to task message route without polymorphic props.
+- `resources/js/components/thread/thread-section.tsx` and `resources/js/components/thread/message-card.tsx` — flat message list using `message_body` and `sender`; removed nested replies and polymorphic message fields.
+
+*Modified public registration access (3 files):*
+- `config/fortify.php` — removed `Features::registration()` so public register routes are not registered.
+- `resources/js/pages/auth/login.tsx` — removed public sign-up link.
+- `resources/js/pages/welcome.tsx` — removed public register link.
+
+**Final frontend data ownership:**
+```
+auth.user.employee.role
+auth.user.employee.division
+project.members[].employee.role
+project.members[].employee.division
+task.assigned_employee_id
+task.assignee
+projectMessage.message_body
+projectMessage.sender
+taskMessage.thread_id
+taskMessage.message_body
+taskMessage.sender
+```
+
+**Registration access cleanup:**
+- Login routes remain available.
+- Public register routes are absent from full `php artisan route:list`.
+- `CreateNewUser.php` and backend registration code remain in place.
+- Kelola User flow remains unchanged.
+
+**Validation:**
+```
+npm run types
+```
+Result: passed.
+
+```
+npm run lint
+```
+Result: passed.
+
+```
+php -l config/fortify.php
+```
+Result: no syntax errors.
+
+```
+php artisan route:list --except-vendor
+php artisan route:list | Select-String -Pattern "register|login"
+```
+Result: 34 app routes, 0 errors. Login routes present. Register routes absent.
+
+```
+php artisan test tests/Feature/Auth/AuthenticationTest.php
+```
+Result: 6 passed, 13 assertions.
+
+Frontend legacy scan:
+- No matches for forbidden frontend assumptions: `user.role`, `user.division`, `assigned_to`, `assignedUser`, `message.body`, `message.user`, `parent_id`, `replies`, `messageable_type`, `messageable_id`, `member.user`, `users_count`, `created_by`, `priority`, `completed_at`.
+- Remaining `user_id`, `role_id`, and `division_id` references are Employee-owned type/form fields, not direct User ownership.
+
+---
+
+### Session 11 — Step 4B.7: Final Integration Verification
+
+**Scope:** Verification-only pass across project/task flows, routes, controllers, requests, policies, middleware, Inertia props, frontend types, affected React pages/components, legacy scans, and tests. Minimal fixes applied only for real integration regressions found during verification.
+
+**Project flow verified:**
+- List uses `ProjectPolicy::viewAny`, then controller filters non-PM users through `project_members.employee_id`.
+- Create is PM-only through `StoreProjectRequest`; creates `Project`, then creates requested `ProjectMember` rows using `employee_id`, `date_joined`, and `is_leader = false`.
+- Detail is PM-or-member through policy; Inertia props include `project`, `assignees`, `projectMessages`, and `availableEmployees`.
+- Update is PM-only; syncs members through `project_members.employee_id`.
+- Delete is PM-only.
+- Add/remove member uses `{employee}` route parameter and `employee_id`.
+- PM has global project access through policy/controller.
+- PM is not auto-added as project member.
+- `is_leader` exists only on `ProjectMember`, so leaders are project-member rows only.
+
+**Task flow verified:**
+- Create/update/delete task details are PM-only.
+- Task create/update uses `assigned_employee_id`.
+- Task assignee validation requires selected Employee to already be a project member.
+- Task detail loads Employee assignee and thread messages.
+- My Task filters by authenticated user's `employee.id` against `tasks.assigned_employee_id`.
+- Status update uses `TaskPolicy::updateStatus`: PM or assigned Employee.
+
+**Integration mismatches found and fixed:**
+- Stale generated Wayfinder files still referenced removed/out-of-scope routes/controllers:
+  - Division Lead
+  - PM Transfer
+  - Reporting
+  - public registration helpers
+- Ran `php artisan wayfinder:generate`, then removed orphan generated files left behind by the generator.
+- Existing frontend used generated `.form()` helpers that the refreshed Wayfinder output no longer types. Replaced those form usages with explicit `action={route.url()}` and `method`.
+- Removed stale direct route helper import from `resources/js/pages/auth/register.tsx`; the page remains dead/inaccessible because public registration routes are disabled.
+- Updated a stale `DivisionSeeder` comment that still mentioned division leads.
+
+**Files modified in this verification pass:**
+- `database/seeders/DivisionSeeder.php`
+- `resources/js/pages/auth/register.tsx`
+- `resources/js/pages/auth/login.tsx`
+- `resources/js/pages/auth/confirm-password.tsx`
+- `resources/js/pages/auth/forgot-password.tsx`
+- `resources/js/pages/auth/reset-password.tsx`
+- `resources/js/pages/auth/two-factor-challenge.tsx`
+- `resources/js/pages/auth/verify-email.tsx`
+- `resources/js/pages/settings/password.tsx`
+- `resources/js/pages/settings/profile.tsx`
+- `resources/js/pages/settings/two-factor.tsx`
+- `resources/js/components/delete-user.tsx`
+- `resources/js/components/two-factor-recovery-codes.tsx`
+- `resources/js/components/two-factor-setup-modal.tsx`
+- generated orphan files removed under `resources/js/actions` and `resources/js/routes`.
+
+**Legacy scan result:**
+- App/generated frontend scan found no active references to removed Reporting, Division Lead, PM Transfer, Attachment, or PmTransferLog features.
+- No active app/frontend references found for direct `User.role`, `User.division`, `User.name`, `created_by`, `project_members.user_id`, `assigned_to`, old task fields, polymorphic messages, or nested reply logic.
+- Remaining matches are explanatory migration/seeder comments saying fields were removed, plus UI library `position` prop false positives.
+
+**Validation:**
+```
+php -l app/Http/Controllers/ProjectController.php
+php -l app/Http/Controllers/TaskController.php
+php -l database/seeders/DivisionSeeder.php
+php -l app/Http/Requests/Project/StoreProjectRequest.php
+php -l app/Http/Requests/Task/StoreTaskRequest.php
+php -l app/Policies/ProjectPolicy.php
+```
+Result: no syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 34 app routes, 0 errors. No reports, PM transfer, division-lead, or public registration routes.
+
+```
+npm run types
+npm run lint
+```
+Result: both passed.
+
+Focused tests:
+```
+php artisan test tests/Feature/DashboardTest.php tests/Feature/Auth/AuthenticationTest.php tests/Feature/ProjectManagementTest.php tests/Feature/TaskManagementTest.php tests/Feature/MyTaskEndpointTest.php tests/Feature/MessageThreadTest.php tests/Feature/Settings/ProfileUpdateTest.php
+```
+Result: Dashboard/Auth passed. Project/Task/MyTask/Message/Profile failures are stale tests using removed `users.role_id`, `users.name`, `created_by`, `assigned_to`, `priority`, `position`, `completed_at`, polymorphic messages, `parent_id`, and nested replies.
+
+Full suite:
+```
+php artisan test
+```
+Result: 39 passed, 34 failed. Failures classified as stale legacy tests:
+- Registration tests expect public register routes, now intentionally disabled.
+- Project/task/my-task/message/reporting/PM-transfer tests use removed schema/features.
+- Profile test expects `users.name`; final design stores name on `employees.name`.
+
+**Remaining work:**
+- Future test cleanup should rewrite or remove stale tests to match final User/Employee, Project/Task, ProjectMessage, Thread/Message, disabled-registration, and removed-feature contracts.
+
+---
+
+### Session 12 — Step 4B.8: Code Documentation Cleanup
+
+**Scope:** developer-written comments and PHPDoc/TS/JSX comments in `app/` and `resources/js/`.
+
+**Comment cleanup performed:**
+- Rewrote controller, policy, middleware, provider, request, action, concern, model, hook, type, layout, and page comments into short Bahasa Indonesia.
+- Removed unnecessary section comments that did not explain application logic.
+- Kept executable code, route names, field names, UI text, validation messages, tests, and generated route/action files unchanged.
+- Kept technical annotations and directives where needed, such as `@var`, `@return`, `@use`, Vite references, and ESLint directives.
+
+**Main files touched:**
+- `app/Http/Controllers/ProjectController.php`
+- `app/Http/Controllers/TaskController.php`
+- `app/Http/Controllers/MessageController.php`
+- `app/Http/Controllers/Settings/*`
+- `app/Http/Middleware/*`
+- `app/Policies/*`
+- `app/Actions/Fortify/*`
+- `app/Concerns/*`
+- `app/Http/Requests/Settings/*`
+- `app/Models/ProjectMessage.php`
+- `app/Providers/*`
+- `resources/js/types/auth.ts`
+- `resources/js/types/models.ts`
+- `resources/js/hooks/*`
+- `resources/js/components/app-header.tsx`
+- `resources/js/components/app-sidebar.tsx`
+- `resources/js/components/nav-main.tsx`
+- `resources/js/components/tasks/create-task-dialog.tsx`
+- `resources/js/layouts/settings/layout.tsx`
+- `resources/js/pages/auth/forgot-password.tsx`
+- `resources/js/pages/auth/verify-email.tsx`
+- `resources/js/pages/projects/index.tsx`
+- `resources/js/pages/projects/show.tsx`
+
+**Validation:**
+```
+php -l <changed PHP files>
+```
+Result: no syntax errors.
+
+```
+npm run types
+npm run lint
+```
+Result: both passed.
