@@ -173,7 +173,6 @@ email: string
 password: string
 phone: string
 address: string
-avatar: string
 status: string
 ```
 
@@ -193,6 +192,9 @@ Implementation notes:
 - Class Diagram menggabungkan account dan employee profile secara konseptual.
 - Database boleh memisahkan tabel user dan employee.
 - Jangan menghapus pemisahan database hanya karena Class Diagram memakai satu class `User`.
+- Field final Employee: `user_id`, `role_id`, `division_id`, `name`, `phone`, `address`.
+- UI memakai fallback inisial/nama saja.
+- Tidak ada upload, display, atau storage avatar dalam implementasi final.
 
 ---
 
@@ -1342,4 +1344,3 @@ The design phase has been cross-checked across:
 - ERD.
 
 The system is ready to proceed into implementation, with this file serving as the common context contract for coding agents.
-

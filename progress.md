@@ -47,7 +47,7 @@ Source of truth: `AI_IMPLEMENTATION_HANDOFF.md`
 - `2026_05_06_163529_create_pm_transfer_logs_table.php` — out of approved scope.
 
 *Created (3 files):*
-- `2026_04_10_041532_create_employees_table.php` — `user_id` (unique, FK → users), `role_id` (FK → roles), `division_id` (FK → divisions), `name`, `phone`, `address`, `avatar_url`, `status`.
+- `2026_04_10_041532_create_employees_table.php` — `user_id` (unique, FK → users), `role_id` (FK → roles), `division_id` (FK → divisions), `name`, `phone`, `address`, `status`.
 - `2026_04_10_041537_create_threads_table.php` — `task_id` (unique FK → tasks); unique constraint enforces one Task → one Thread.
 - `2026_04_10_041540_create_message_project_table.php` — `project_id` (FK → projects), `sender_id` (FK → employees), `message_body`; table name `message_project` per approved ERD.
 
@@ -86,7 +86,7 @@ Result: 12 migrations, 0 errors.
 - `app/Models/PmTransferLog.php` — table removed in Step 1; model was dead code.
 
 *Created (3 files):*
-- `app/Models/Employee.php` — `$fillable`: user_id, role_id, division_id, name, phone, address, avatar_url, status. Relations: `user()`, `role()`, `division()`, `projectMemberships()`, `assignedTasks()`, `sentMessages()`, `sentProjectMessages()`.
+- `app/Models/Employee.php` — `$fillable`: user_id, role_id, division_id, name, phone, address, status. Relations: `user()`, `role()`, `division()`, `projectMemberships()`, `assignedTasks()`, `sentMessages()`, `sentProjectMessages()`.
 - `app/Models/Thread.php` — `$fillable`: task_id. Relations: `task()`, `messages()`.
 - `app/Models/ProjectMessage.php` — `$table = 'message_project'`. `$fillable`: project_id, sender_id, message_body. Relations: `project()`, `sender()`.
 
@@ -128,7 +128,7 @@ Result: All models resolved correct tables, attributes, casts, and relationships
 - `2026_04_10_041532_create_employees_table.php` — removed `status` column.
 - `app/Models/Employee.php` — removed `status` from `$fillable`.
 
-Final Employee fields: `user_id`, `role_id`, `division_id`, `name`, `phone`, `address`, `avatar_url`.
+Final Employee fields: `user_id`, `role_id`, `division_id`, `name`, `phone`, `address`.
 
 Validation after correction:
 ```
@@ -156,7 +156,7 @@ Result: 12 migrations, 0 errors.
 - `database/factories/UserFactory.php` — auth-only `definition()`: email, password, email_verified_at, remember_token, 2FA nullable fields. Removed: name, role_id, division_id, role state methods. Kept: `unverified()`, `withTwoFactor()`.
 
 *Factories created (1):*
-- `database/factories/EmployeeFactory.php` — `definition()`: user_id (via `User::factory()`), role_id (null), division_id (null), name, phone/address/avatar_url (null). State methods: `projectManager()`, `businessDeveloper()`, `teamMember()`, `inDivision(string $code)`.
+- `database/factories/EmployeeFactory.php` — `definition()`: user_id (via `User::factory()`), role_id (null), division_id (null), name, phone/address (null). State methods: `projectManager()`, `businessDeveloper()`, `teamMember()`, `inDivision(string $code)`.
 
 **Validation:**
 ```
@@ -347,7 +347,7 @@ Result: 14 failed, 0 assertions. Failures occur before endpoint assertions becau
   - `destroy()` deletes the `User`; `employees.user_id` cascades, then employee-related FKs apply existing schema behavior.
   - Authorization is Project Manager only via `employee.role.slug`.
 - `app/Http/Requests/User/StoreUserRequest.php`
-  - Validates `email`, `password`, and Employee fields: `name`, `role_id`, `division_id`, `phone`, `address`, `avatar_url`.
+  - Validates `email`, `password`, and Employee fields: `name`, `role_id`, `division_id`, `phone`, `address`.
 - `app/Http/Requests/User/UpdateUserRequest.php`
   - Validates unique email ignoring current user, optional password, and Employee fields.
 
@@ -363,7 +363,7 @@ Result: 14 failed, 0 assertions. Failures occur before endpoint assertions becau
 - `resources/js/pages/users/index.tsx`
   - Minimal Inertia page for list/create/edit/delete user management.
   - Uses role and division master data as selectors.
-  - Uses Employee fields for name, role, division, phone, address, avatar URL.
+  - Uses Employee fields for name, role, division, phone, and address.
 
 **Final user-management flow:**
 ```
@@ -378,7 +378,7 @@ UserController@store
 → validate request
 → DB transaction
 → create User(email, password, email_verified_at)
-→ create Employee(user_id, role_id, division_id, name, phone, address, avatar_url)
+→ create Employee(user_id, role_id, division_id, name, phone, address)
 ```
 
 ```
@@ -386,7 +386,7 @@ UserController@update
 → validate request
 → DB transaction
 → update User(email, optional password)
-→ updateOrCreate Employee(user_id, role_id, division_id, name, phone, address, avatar_url)
+→ updateOrCreate Employee(user_id, role_id, division_id, name, phone, address)
 ```
 
 ```
@@ -582,7 +582,7 @@ Result: TypeScript check passed.
 
 *Modified affected frontend flow (10 files):*
 - `resources/js/hooks/use-auth-user.ts` — role checks now read `user.employee.role.slug`.
-- `resources/js/components/user-info.tsx` and `resources/js/components/app-header.tsx` — display Employee name/avatar with email fallback.
+- `resources/js/components/user-info.tsx` and `resources/js/components/app-header.tsx` — display Employee name initials with email fallback.
 - `resources/js/pages/projects/index.tsx` — reads `availableEmployees` and `members_count`.
 - `resources/js/pages/projects/show.tsx` — reads `project.members`, `projectMessages`, and Employee assignees.
 - `resources/js/components/projects/project-form.tsx` — member selectors use Employee IDs.
@@ -1112,3 +1112,197 @@ Result: 65 passed, 0 failed.
 
 **Remaining access mismatches:**
 - None found for Step 5D.
+
+---
+
+### Session 17 — Cleanup: Remove Unused Employee Profile Image Field
+
+**Scope:** Employee schema, Employee model, user management backend/frontend, shared auth/profile display, seeders/factories, and affected tests.
+
+**Files modified:**
+- `database/migrations/2026_04_10_041532_create_employees_table.php`
+- `app/Models/Employee.php`
+- `app/Http/Controllers/UserController.php`
+- `app/Http/Requests/User/StoreUserRequest.php`
+- `app/Http/Requests/User/UpdateUserRequest.php`
+- `database/factories/EmployeeFactory.php`
+- `database/seeders/UserSeeder.php`
+- `resources/js/types/auth.ts`
+- `resources/js/types/models.ts`
+- `resources/js/components/user-info.tsx`
+- `resources/js/components/app-header.tsx`
+- `resources/js/pages/users/index.tsx`
+- `progress.md`
+
+**Cleanup result:**
+- Removed the unused Employee profile image URL field from the original employees migration.
+- Removed the field from Employee `$fillable`.
+- Removed validation and write logic from user management requests and controller.
+- Removed the field from Employee factory data and seeder documentation.
+- Removed the field from frontend auth/model types.
+- Removed the User Management form input for profile image URL.
+- Header and user menu now use initials/name fallback only.
+
+**Validation:**
+```
+php artisan migrate:fresh --seed
+```
+Result: migrations and seeders completed successfully.
+
+```
+php -l database/migrations/2026_04_10_041532_create_employees_table.php
+php -l app/Models/Employee.php
+php -l app/Http/Controllers/UserController.php
+php -l app/Http/Requests/User/StoreUserRequest.php
+php -l app/Http/Requests/User/UpdateUserRequest.php
+php -l database/factories/EmployeeFactory.php
+php -l database/seeders/UserSeeder.php
+```
+Result: no syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 34 routes, no errors.
+
+```
+npm run types
+npm run lint
+```
+Result: both passed.
+
+```
+php artisan test tests/Feature/UserManagementFinalTest.php tests/Feature/Settings/ProfileUpdateTest.php tests/Feature/Auth/RegistrationTest.php
+```
+Result: 9 passed.
+
+```
+php artisan test
+```
+Result: 65 passed, 0 failed.
+
+**Remaining references:**
+- No remaining application, database, route, or test references to the removed Employee profile image URL field.
+- Generic frontend initials components still use Radix Avatar UI primitives for fallback display only.
+- `AI_IMPLEMENTATION_HANDOFF.md` was updated after this cleanup so the implementation contract no longer contains Employee avatar fields.
+
+---
+
+### Session 18 — Step 5E: Final Design-to-Code Consistency Audit
+
+**Scope:** Final audit across finalized Use Case, Activity, Sequence, Class Diagram, ERD, routes, controllers, requests, policies/middleware, models/migrations, frontend, and tests.
+
+**Use Case consistency result:**
+- Login remains active through Fortify auth routes and tests.
+- Dashboard is available to Project Manager and Business Developer only.
+- Kelola User is available to Project Manager only.
+- Kelola Project, Kelola Anggota Project, and Kelola Task are Project Manager flows.
+- My Task is Team Member only.
+- Update Status Task is Team Member assignee only.
+- Detail Project and Project Message are available to PM and relevant Business Developer.
+- Detail Task and Task Message are available to PM and assigned Team Member.
+
+**Activity consistency result:**
+- Actor branches match final role behavior.
+- PM is not sent through My Task or member status-update activity.
+- BD is kept in project-related activity only.
+- Team Member is kept in own task activity only.
+- No avatar, report, division lead, PM transfer, attachment, or registration activity was reintroduced.
+
+**Sequence consistency result:**
+- Dashboard sequence uses `DashboardController` with Project and Task queries only.
+- Project message sequence uses `ProjectMessage`.
+- Task message sequence uses `Thread` and `Message`.
+- Kelola User creates/updates User and Employee together.
+- My Task and task status flows use authenticated Employee assignment.
+- Real mismatch found: task message edit/delete routes and UI existed even though final Message operations only include get/send. Removed this non-final surface.
+
+**Class Diagram consistency result:**
+- Dashboard custom methods remain public and aligned:
+  - `getProjectSummary()`
+  - `getRecentActivities()`
+  - `getIncomingDueTasks()`
+  - `getCalendarData()`
+  - `getDeadlinesByDate()`
+  - `getTimelineData()`
+- Final message operations now expose only:
+  - `getMessagesByProject()`
+  - `sendProjectMessage()`
+  - `getMessagesByThread()`
+  - `sendTaskMessage()`
+- Laravel CRUD names remain unchanged where appropriate.
+- Technical helper methods remain private.
+
+**ERD consistency result:**
+- User remains auth-only.
+- Employee final fields are `user_id`, `role_id`, `division_id`, `name`, `phone`, and `address`.
+- No `avatar_url` field remains in schema/model/application code.
+- Project membership uses `employee_id`, `date_joined`, and `is_leader`.
+- Task assignment uses `assigned_employee_id`.
+- Project messages use `message_project`.
+- Task messages use `threads` and `messages`.
+- No dashboard table/model exists.
+
+**Role-access consistency result:**
+- Project Manager: Dashboard, User management, Project flows, member management, task management, project detail/message, task detail/message; no My Task and no member status-update flow.
+- Business Developer: Dashboard, relevant project list/detail/message; no My Task and no Task Detail.
+- Team Member: My Task, own Task Detail, own status update, own task message; no Dashboard and no Project management/detail.
+- Sidebar/header visibility matches direct backend protection.
+
+**Frontend/backend contract result:**
+- Dashboard props remain `projectSummary`, `recentActivities`, `incomingDueTasks`, `calendarData`, `deadlinesByDate`, and `timelineData`.
+- User Management types and forms use User plus Employee profile fields only.
+- Project/member/task/message types match backend response shape.
+- Thread UI now supports list/send only, matching final message use cases.
+- Initials/name fallback is used for user visuals; no image URL field.
+
+**Fixes made:**
+- Removed non-final task message edit/delete endpoints from `routes/web.php`.
+- Removed `MessageController::update()` and `MessageController::destroy()`.
+- Removed obsolete `UpdateMessageRequest`.
+- Removed message update/delete authorization methods from `MessagePolicy`.
+- Removed edit/delete controls from `resources/js/components/thread/message-card.tsx`.
+- Removed now-unused `canManageMessages` prop from thread components.
+- Removed stale message-update tests from `MessageFlowFinalTest`.
+
+**Validation:**
+```
+php artisan migrate:fresh --seed
+```
+Result: migrations and seeders completed successfully.
+
+```
+php -l app/Http/Controllers/MessageController.php
+php -l app/Policies/MessagePolicy.php
+php -l routes/web.php
+php -l tests/Feature/MessageFlowFinalTest.php
+```
+Result: no syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 32 routes, no errors. Public registration and message edit/delete routes are absent.
+
+```
+npm run types
+npm run lint
+```
+Result: both passed.
+
+```
+php artisan test tests/Feature/MessageFlowFinalTest.php tests/Feature/RoleAccessFinalTest.php tests/Feature/ProjectManagementFinalTest.php tests/Feature/TaskManagementFinalTest.php tests/Feature/MyTaskFinalTest.php tests/Feature/DashboardTest.php tests/Feature/UserManagementFinalTest.php
+```
+Result: 25 passed.
+
+```
+php artisan test
+```
+Result: 63 passed, 0 failed.
+
+**Legacy reference scan:**
+- No active code references found for avatar URL, direct User role/division/name fields, old project/task fields, polymorphic messages, message edit/delete routes, reports, Division Lead, PM Transfer, Attachment, or PmTransferLog.
+- Remaining legacy words are historical progress notes, contract warnings, migration/seeder comments saying fields were removed, and tests asserting removed message fields are absent.
+
+**Final remaining mismatches:**
+- None found for Step 5E.
