@@ -1,32 +1,53 @@
-// models.ts — TypeScript types for every object returned by the backend.
-// Each type matches a database table. Import from '@/types' anywhere in the app.
+// Tipe data yang dikirim dari backend.
 
-// Role & Division
+// Role dan division.
 export type Role = {
     id: number;
     name: string;
-    slug: string; // 'project-manager' | 'business-developer' | 'team-member'
+    slug: string; // contoh: project-manager
 };
 
 export type Division = {
     id: number;
     name: string;
-    lead_user_id: number | null;
 };
 
-// User (the richer version used inside project/task context)
-export type AppUser = {
+export type Employee = {
     id: number;
+    user_id: number;
+    role_id: number;
+    division_id: number | null;
     name: string;
-    email: string;
-    avatar?: string;
-    role: Role;
-    division: Division;
+    phone?: string | null;
+    address?: string | null;
+    avatar_url?: string | null;
+    role?: Role | null;
+    division?: Division | null;
     created_at: string;
     updated_at: string;
 };
 
-// Project
+export type AppUser = {
+    id: number;
+    email: string;
+    email_verified_at: string | null;
+    employee?: Employee | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProjectMember = {
+    id: number;
+    project_id: number;
+    employee_id: number;
+    date_joined: string;
+    is_leader: boolean;
+    employee?: Employee | null;
+    created_at: string;
+    updated_at: string;
+};
+
+// Project.
 export type ProjectStatus = 'planning' | 'active' | 'completed' | 'on_hold';
 
 export type Project = {
@@ -36,16 +57,16 @@ export type Project = {
     status: ProjectStatus;
     start_date: string | null;
     due_date: string | null;
-    created_by: number;
-    creator?: AppUser; // only present when backend eager-loads it
-    members?: AppUser[]; // only present when backend eager-loads it
-    tasks_count?: number; // added by withCount('tasks')
-    users_count?: number; // added by withCount('users')
+    members?: ProjectMember[];
+    tasks?: Task[];
+    project_messages?: ProjectMessage[];
+    tasks_count?: number;
+    members_count?: number;
     created_at: string;
     updated_at: string;
 };
 
-// Task
+// Task.
 export type TaskStatus = 'todo' | 'in_progress' | 'pending_review' | 'done';
 
 export type Task = {
@@ -54,42 +75,45 @@ export type Task = {
     title: string;
     description: string | null;
     status: TaskStatus;
-    priority?: 'low' | 'medium' | 'high';
-    assigned_to: number | null;
-    created_by: number;
+    assigned_employee_id: number | null;
     start_date: string | null;
     due_date: string | null;
-    completed_at?: string | null;
-    project?: Project; // only present when backend eager-loads it
-    assignee?: AppUser; // only present when backend eager-loads it
-    creator?: AppUser; // only present when backend eager-loads it
+    project?: Project;
+    assignee?: Employee | null;
+    thread?: Thread | null;
     created_at: string;
     updated_at: string;
-    messages_count?: number;
-    latest_message_id?: number | null;
 };
 
-// Message (threaded discussion)
-// Can belong to a Project or a Task via polymorphic relation.
+export type Thread = {
+    id: number;
+    task_id: number;
+    messages?: Message[];
+    created_at: string;
+    updated_at: string;
+};
+
 export type Message = {
     id: number;
-    body: string;
-    user_id: number;
-    author: {
-        id: number;
-        name: string;
-        email: string;
-    };
-    parent_id: number | null;
-    replies: Message[];
-    messageable_type: string;
-    messageable_id: number;
-    edited_at?: string | null;
+    thread_id: number;
+    sender_id: number;
+    message_body: string;
+    sender?: Employee | null;
     created_at: string;
     updated_at: string;
 };
 
-// Pagination wrapper — used when the backend returns a paginated list
+export type ProjectMessage = {
+    id: number;
+    project_id: number;
+    sender_id: number;
+    message_body: string;
+    sender?: Employee | null;
+    created_at: string;
+    updated_at: string;
+};
+
+// Data untuk hasil paginasi.
 export type PaginatedResponse<T> = {
     data: T[];
     current_page: number;
@@ -100,19 +124,7 @@ export type PaginatedResponse<T> = {
     to: number | null;
 };
 
-// Report types
-
 export type CalendarDay = {
-    date: string; // 'YYYY-MM-DD'
+    date: string; // format YYYY-MM-DD
     tasks: Task[];
-};
-
-export type PerformanceMetrics = {
-    total_tasks: number;
-    todo_tasks: number;
-    in_progress_tasks: number;
-    pending_review_tasks: number;
-    done_tasks: number;
-    overdue_tasks: number;
-    completion_rate: number; // 0–100
 };

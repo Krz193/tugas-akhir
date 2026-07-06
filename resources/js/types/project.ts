@@ -1,6 +1,11 @@
-export type AvailableUser = {
+export type AvailableEmployee = {
     id: number;
     name: string;
+    role?: {
+        id: number;
+        name: string;
+        slug: string;
+    } | null;
     division: {
         id: number;
         name: string;

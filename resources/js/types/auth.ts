@@ -1,28 +1,34 @@
-// Role and Division are imported from models.ts via the barrel export,
-// but to avoid circular imports we inline the minimal shapes here.
+// Bentuk data auth yang dibagikan ke semua halaman.
 export type AuthRole = {
     id: number;
     name: string;
-    slug: string; // 'project-manager' | 'business-developer' | 'team-member'
+    slug: string; // contoh: project-manager
 };
 
 export type AuthDivision = {
     id: number;
     name: string;
-    lead_user_id: number | null;
+};
+
+export type AuthEmployee = {
+    id: number;
+    user_id: number;
+    role_id: number;
+    division_id: number | null;
+    name: string;
+    phone?: string | null;
+    address?: string | null;
+    avatar_url?: string | null;
+    role?: AuthRole | null;
+    division?: AuthDivision | null;
 };
 
 export type User = {
     id: number;
-    name: string;
     email: string;
-    avatar?: string;
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
-    // role and division are now always present because HandleInertiaRequests
-    // eager-loads them before sharing the user with every Inertia response.
-    role: AuthRole;
-    division: AuthDivision;
+    employee?: AuthEmployee | null;
     created_at: string;
     updated_at: string;
     [key: string]: unknown;
