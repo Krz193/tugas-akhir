@@ -1,14 +1,7 @@
-// app-sidebar.tsx — Main sidebar shown on all authenticated pages.
+// Sidebar utama untuk halaman setelah login.
 
 import { Link } from '@inertiajs/react';
-import {
-    BarChart3,
-    CalendarDays,
-    CheckSquare,
-    FolderKanban,
-    GanttChartSquare,
-    LayoutGrid,
-} from 'lucide-react';
+import { CheckSquare, FolderKanban, LayoutGrid } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -31,22 +24,10 @@ const dashboardNavItem: NavItem[] = [
         icon: LayoutGrid,
     },
 ];
-// Main nav links — href must match routes/web.php
+
 const mainNavItems: NavItem[] = [
-    // { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
     { title: 'Projects', href: '/projects', icon: FolderKanban },
     { title: 'My Tasks', href: '/my-tasks', icon: CheckSquare },
-];
-
-// Report nav links — shown under a separate "Reports" label
-const reportNavItems: NavItem[] = [
-    {
-        title: 'Timeline',
-        href: '/reports/project-timeline',
-        icon: GanttChartSquare,
-    },
-    { title: 'Calendar', href: '/reports/calendar', icon: CalendarDays },
-    { title: 'Performance', href: '/reports/performance', icon: BarChart3 },
 ];
 
 export function AppSidebar() {
@@ -67,7 +48,6 @@ export function AppSidebar() {
             <SidebarContent>
                 <NavMain items={dashboardNavItem} />
                 <NavMain items={mainNavItems} label="Project Management" />
-                <NavMain items={reportNavItems} label="Reports" />
             </SidebarContent>
 
             <SidebarFooter>

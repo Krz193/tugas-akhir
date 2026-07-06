@@ -1,14 +1,13 @@
 import { Link } from '@inertiajs/react';
-import { FolderKanban, CheckSquare, MessageSquare } from 'lucide-react';
+import { CheckSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface RecentActivity {
-    type: string;
-    title: string;
-    description: string;
-    context?: string | null;
+    taskTitle: string;
+    projectName: string;
+    status: string;
+    updatedAt: string;
     url?: string | null;
-    created_at: string;
 }
 
 interface RecentActivityListProps {
@@ -30,32 +29,12 @@ export default function RecentActivityList({
         }).format(-diffInDays, 'day');
     }
 
-    function getActivityIcon(type: string) {
-        switch (type) {
-            case 'project_updated':
-                return (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 text-blue-400">
-                        <FolderKanban className="h-5 w-5" />
-                    </div>
-                );
-
-            case 'task_updated':
-                return (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
-                        <CheckSquare className="h-5 w-5" />
-                    </div>
-                );
-
-            case 'message_posted':
-                return (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/10 text-orange-400">
-                        <MessageSquare className="h-5 w-5" />
-                    </div>
-                );
-
-            default:
-                return null;
-        }
+    function getActivityIcon() {
+        return (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
+                <CheckSquare className="h-5 w-5" />
+            </div>
+        );
     }
 
     return (
@@ -74,7 +53,8 @@ export default function RecentActivityList({
                         activities.map((activity, index) => (
                             <div
                                 key={
-                                    activity.url ?? `${activity.type}-${index}`
+                                    activity.url ??
+                                    `${activity.taskTitle}-${index}`
                                 }
                                 className="border-b pb-4 last:border-b-0 last:pb-0"
                             >
@@ -84,28 +64,26 @@ export default function RecentActivityList({
                                 >
                                     <div className="flex items-start justify-between gap-4 p-3">
                                         <div className="flex items-start gap-4">
-                                            {getActivityIcon(activity.type)}
+                                            {getActivityIcon()}
 
                                             <div className="space-y-1">
                                                 <p className="font-medium text-white">
-                                                    {activity.title}
+                                                    {activity.taskTitle}
                                                 </p>
 
                                                 <p className="text-sm text-muted-foreground">
-                                                    {activity.description}
+                                                    Status: {activity.status}
                                                 </p>
 
-                                                {activity.context && (
-                                                    <p className="text-xs text-muted-foreground/70">
-                                                        {activity.context}
-                                                    </p>
-                                                )}
+                                                <p className="text-xs text-muted-foreground/70">
+                                                    {activity.projectName}
+                                                </p>
                                             </div>
                                         </div>
 
                                         <span className="shrink-0 text-sm text-muted-foreground">
                                             {formatRelativeDate(
-                                                activity.created_at,
+                                                activity.updatedAt,
                                             )}
                                         </span>
                                     </div>

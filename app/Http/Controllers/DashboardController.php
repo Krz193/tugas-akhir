@@ -4,157 +4,225 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\Task;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Models\Message;
 
 class DashboardController extends Controller
 {
     public function index(Request $request): Response
     {
-        $user = Auth::user();
+        $selectedDate = $request->date('date') ?? today();
+        $accessibleProjectIds = $this->accessibleProjectIds($request);
 
-        $isProjectManager = $user->role?->slug === 'project-manager';
+        return Inertia::render('dashboard', [
+            'summary' => $this->projectAndTaskSummary($accessibleProjectIds),
+            'recentActivities' => $this->recentTaskActivities($accessibleProjectIds),
+            'incomingDueTasks' => $this->incomingDueTasks($accessibleProjectIds),
+            'calendarItems' => $this->calendarItems($accessibleProjectIds),
+            'selectedDate' => $selectedDate->toDateString(),
+            'selectedDateDeadlines' => $this->deadlinesForDate($accessibleProjectIds, $selectedDate),
+            'timelineProjects' => $this->timelineProjects($accessibleProjectIds),
+        ]);
+    }
 
-        /** @var \Illuminate\Database\Eloquent\Builder<Project> $accessibleProjectsQuery */
-        $accessibleProjectsQuery = Project::query();
+    private function accessibleProjectIds(Request $request)
+    {
+        $user = $request->user();
+        $employeeId = $user?->employee?->id;
+        $isProjectManager = $user?->employee?->role?->slug === 'project-manager';
+
+        $projectsQuery = Project::query();
 
         if (! $isProjectManager) {
-            $accessibleProjectsQuery->where(function (Builder $query) use ($user) {
-                $query
-                    ->where('created_by', $user->id)
-                    ->orWhereHas('members', function (Builder $memberQuery) use ($user) {
-                        $memberQuery->where('user_id', $user->id);
-                    });
+            $projectsQuery->whereHas('members', function ($memberQuery) use ($employeeId): void {
+                $memberQuery->where('employee_id', $employeeId);
             });
         }
 
-        $accessibleProjectIds = (clone $accessibleProjectsQuery)
-            ->pluck('id');
+        return $projectsQuery->pluck('id');
+    }
 
-        /** @var \Illuminate\Database\Eloquent\Builder<Task> $accessibleTasksQuery */
-        $accessibleTasksQuery = Task::query()
-            ->whereIn('project_id', $accessibleProjectIds);
+    private function projectAndTaskSummary($projectIds): array
+    {
+        $today = today();
 
-        $recentProjectActivities = Project::query()
-            ->whereIn('id', $accessibleProjectIds)
-            ->latest('updated_at')
-            ->take(5)
-            ->get()
-            ->map(function (Project $project) {
-                return [
-                    'type' => 'project_updated',
-                    'title' => $project->name,
-                    'description' => sprintf(
-                        '%s was recently updated',
-                        $project->name,
-                    ),
-                    'context' => 'Project Workspace',
-                    'url' => route('projects.show', $project),
-                    'created_at' => $project->updated_at,
-                ];
-            });
+        return [
+            'totalProject' => Project::query()
+                ->whereIn('id', $projectIds)
+                ->count(),
+            'activeProject' => Project::query()
+                ->whereIn('id', $projectIds)
+                ->where('status', 'active')
+                ->count(),
+            'completedProject' => Project::query()
+                ->whereIn('id', $projectIds)
+                ->where('status', 'completed')
+                ->count(),
+            'overdueProject' => Project::query()
+                ->whereIn('id', $projectIds)
+                ->where('status', '!=', 'completed')
+                ->whereDate('due_date', '<', $today)
+                ->count(),
+            'totalTask' => Task::query()
+                ->whereIn('project_id', $projectIds)
+                ->count(),
+            'unfinishedTask' => Task::query()
+                ->whereIn('project_id', $projectIds)
+                ->where('status', '!=', 'done')
+                ->count(),
+        ];
+    }
 
-        $recentTaskActivities = Task::query()
+    private function recentTaskActivities($projectIds)
+    {
+        return Task::query()
             ->with('project')
-            ->whereIn('project_id', $accessibleProjectIds)
-            ->latest('updated_at')
+            ->whereIn('project_id', $projectIds)
+            ->orderByDesc('updated_at')
             ->take(10)
             ->get()
-            ->map(function (Task $task) {
+            ->map(function (Task $task): array {
                 return [
-                    'type' => 'task_updated',
-                    'title' => $task->title,
-                    'description' => sprintf(
-                        'Currently %s on %s',
-                        str_replace('_', ' ', $task->status),
-                        $task->project?->name ?? 'Unknown Project',
-                    ),
-                    'context' => 'Task Board',
+                    'taskTitle' => $task->title,
+                    'projectName' => $task->project?->name ?? 'Unknown Project',
+                    'status' => $task->status,
+                    'updatedAt' => $task->updated_at,
                     'url' => route('projects.show', [
                         'project' => $task->project_id,
                         'task' => $task->id,
                     ]),
-                    'created_at' => $task->updated_at,
                 ];
             });
+    }
 
-        $recentMessageActivities = Message::query()
-            ->with(['author', 'messageable'])
-            ->where(function (Builder $query) use ($accessibleProjectIds) {
-                $query
-                    ->where(function (Builder $projectQuery) use ($accessibleProjectIds) {
-                        $projectQuery
-                            ->where('messageable_type', Project::class)
-                            ->whereIn('messageable_id', $accessibleProjectIds);
-                    })
-                    ->orWhere(function (Builder $taskQuery) use ($accessibleProjectIds) {
-                        $taskQuery
-                            ->where('messageable_type', Task::class)
-                            ->whereIn(
-                                'messageable_id',
-                                Task::query()
-                                    ->whereIn('project_id', $accessibleProjectIds)
-                                    ->pluck('id')
-                            );
-                    });
-            })
-            ->latest('created_at')
+    private function incomingDueTasks($projectIds)
+    {
+        $today = today();
+        $oneWeekFromToday = today()->addDays(7);
+
+        return Task::query()
+            ->with('project')
+            ->whereIn('project_id', $projectIds)
+            ->where('status', '!=', 'done')
+            ->whereDate('due_date', '>=', $today)
+            ->whereDate('due_date', '<=', $oneWeekFromToday)
+            ->orderBy('due_date')
             ->take(10)
             ->get()
-            ->map(function (Message $message) {
-                $context = null;
-                $url = null;
-
-                if ($message->messageable instanceof Project) {
-                    $context = $message->messageable->name;
-                    $url = route('projects.show', $message->messageable);
-                }
-
-                if ($message->messageable instanceof Task) {
-                    $context = $message->messageable->title;
-                    $url = route('projects.show', [
-                        'project' => $message->messageable->project_id,
-                        'task' => $message->messageable->id,
-                    ]);
-                }
-
+            ->map(function (Task $task): array {
                 return [
-                    'type' => 'message_posted',
-                    'title' => $message->author?->name ?? 'Unknown User',
-                    'description' => sprintf(
-                        '%s posted a new discussion message',
-                        $message->author?->name ?? 'Unknown User',
-                    ),
-                    'context' => $context,
-                    'url' => $url,
-                    'created_at' => $message->created_at,
+                    'id' => $task->id,
+                    'taskTitle' => $task->title,
+                    'projectName' => $task->project?->name ?? 'Unknown Project',
+                    'status' => $task->status,
+                    'dueDate' => $task->due_date?->toDateString(),
+                    'url' => route('projects.show', [
+                        'project' => $task->project_id,
+                        'task' => $task->id,
+                    ]),
+                ];
+            });
+    }
+
+    private function calendarItems($projectIds)
+    {
+        $projectCalendarItems = Project::query()
+            ->whereIn('id', $projectIds)
+            ->whereNotNull('due_date')
+            ->orderBy('due_date')
+            ->get()
+            ->map(function (Project $project): array {
+                return [
+                    'type' => 'project',
+                    'title' => $project->name,
+                    'date' => $project->due_date?->toDateString(),
+                    'status' => $project->status,
+                    'url' => route('projects.show', $project),
                 ];
             });
 
-        $recentActivities = $recentProjectActivities
-            ->concat($recentTaskActivities)
-            ->concat($recentMessageActivities)
-            ->sortByDesc('created_at')
-            ->take(10)
-            ->values();
+        $taskCalendarItems = Task::query()
+            ->with('project')
+            ->whereIn('project_id', $projectIds)
+            ->whereNotNull('due_date')
+            ->orderBy('due_date')
+            ->get()
+            ->map(function (Task $task): array {
+                return [
+                    'type' => 'task',
+                    'title' => $task->title,
+                    'projectName' => $task->project?->name ?? 'Unknown Project',
+                    'date' => $task->due_date?->toDateString(),
+                    'status' => $task->status,
+                    'url' => route('projects.show', [
+                        'project' => $task->project_id,
+                        'task' => $task->id,
+                    ]),
+                ];
+            });
 
-        return Inertia::render('dashboard', [
-            'stats' => [
-                'accessibleProjectsCount' => $accessibleProjectsQuery->count(),
-                'assignedTasksCount' => Task::where('assigned_to', $user->id)->count(),
-                'pendingReviewTasksCount' => (clone $accessibleTasksQuery)
-                    ->where('status', 'pending_review')
-                    ->count(),
-                'overdueTasksCount' => (clone $accessibleTasksQuery)
-                    ->whereNotIn('status', ['done'])
-                    ->whereDate('due_date', '<', now())
-                    ->count(),
-            ],
-            'recentActivities' => $recentActivities,
-        ]);
+        return $projectCalendarItems
+            ->concat($taskCalendarItems)
+            ->sortBy('date')
+            ->values();
+    }
+
+    private function deadlinesForDate($projectIds, $selectedDate)
+    {
+        $projectDeadlines = Project::query()
+            ->whereIn('id', $projectIds)
+            ->whereDate('due_date', $selectedDate)
+            ->orderBy('name')
+            ->get()
+            ->map(function (Project $project): array {
+                return [
+                    'type' => 'project',
+                    'title' => $project->name,
+                    'status' => $project->status,
+                    'url' => route('projects.show', $project),
+                ];
+            });
+
+        $taskDeadlines = Task::query()
+            ->with('project')
+            ->whereIn('project_id', $projectIds)
+            ->whereDate('due_date', $selectedDate)
+            ->orderBy('title')
+            ->get()
+            ->map(function (Task $task): array {
+                return [
+                    'type' => 'task',
+                    'title' => $task->title,
+                    'projectName' => $task->project?->name ?? 'Unknown Project',
+                    'status' => $task->status,
+                    'url' => route('projects.show', [
+                        'project' => $task->project_id,
+                        'task' => $task->id,
+                    ]),
+                ];
+            });
+
+        return $projectDeadlines
+            ->concat($taskDeadlines)
+            ->values();
+    }
+
+    private function timelineProjects($projectIds)
+    {
+        return Project::query()
+            ->whereIn('id', $projectIds)
+            ->orderBy('start_date')
+            ->get()
+            ->map(function (Project $project): array {
+                return [
+                    'id' => $project->id,
+                    'name' => $project->name,
+                    'status' => $project->status,
+                    'startDate' => $project->start_date?->toDateString(),
+                    'dueDate' => $project->due_date?->toDateString(),
+                    'url' => route('projects.show', $project),
+                ];
+            });
     }
 }
