@@ -25,7 +25,7 @@ class TaskController extends Controller
         }
 
         $validated = Validator::make($request->query(), [
-            'status' => ['nullable', 'in:todo,in_progress,pending_review,done'],
+            'status' => ['nullable', 'in:todo,in_progress,done'],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ])->validate();

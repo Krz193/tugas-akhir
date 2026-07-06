@@ -5,11 +5,22 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
-Route::get('/', function () {
+Route::get('/', function (Request $request) {
+    $roleSlug = $request->user()?->employee?->role?->slug;
+
+    if ($roleSlug === 'team-member') {
+        return redirect()->route('tasks.my');
+    }
+
+    if ($roleSlug === 'project-manager' || $roleSlug === 'business-developer') {
+        return redirect()->route('dashboard');
+    }
+
     return Inertia::render('welcome', [
         'canRegister' => Features::enabled(Features::registration()),
     ]);

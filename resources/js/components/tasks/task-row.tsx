@@ -24,25 +24,27 @@ function statusSelectClass(status: TaskStatus) {
         return 'border-blue-300 bg-blue-50 text-blue-800';
     }
 
-    if (status === 'pending_review') {
-        return 'border-amber-300 bg-amber-50 text-amber-800';
-    }
-
     return 'border-gray-300 bg-gray-50 text-gray-700';
 }
 
 type TaskRowProps = {
     task: Task;
     canDelete: boolean;
+    canOpenDetail?: boolean;
     onClick: () => void;
 };
 
-export function TaskRow({ task, canDelete, onClick }: TaskRowProps) {
-    const { user, isProjectManager } = useAuthUser();
+export function TaskRow({
+    task,
+    canDelete,
+    canOpenDetail = true,
+    onClick,
+}: TaskRowProps) {
+    const { user, isTeamMember } = useAuthUser();
 
     const employeeId = user.employee?.id;
     const canUpdateStatus =
-        isProjectManager() || task.assigned_employee_id === employeeId;
+        isTeamMember() && task.assigned_employee_id === employeeId;
 
     function handleStatusChange(newStatus: string) {
         router.patch(`/tasks/${task.id}/status`, {
@@ -56,24 +58,25 @@ export function TaskRow({ task, canDelete, onClick }: TaskRowProps) {
         }
     }
 
-    const isLeadOrPm = isProjectManager();
-    const shouldRenderLockedState =
-        ['pending_review', 'done'].includes(task.status) && !isLeadOrPm;
-
-    const isMember = !isLeadOrPm;
-    const showSeekApprovalButton = isMember && task.status === 'in_progress';
-
     return (
         <div
-            onClick={onClick}
-            className="flex cursor-pointer items-center gap-3 border-b px-5 py-3 transition-colors last:border-0 hover:bg-muted/50"
+            onClick={() => {
+                if (canOpenDetail) {
+                    onClick();
+                }
+            }}
+            className={`flex items-center gap-3 border-b px-5 py-3 transition-colors last:border-0 ${
+                canOpenDetail
+                    ? 'cursor-pointer hover:bg-muted/50'
+                    : 'cursor-default'
+            }`}
         >
             <div className="w-28">
-                {shouldRenderLockedState ? (
+                {!canUpdateStatus ? (
                     <div
                         className={`flex h-9 items-center justify-center rounded-md border text-xs font-medium shadow-sm transition-colors ${statusSelectClass(task.status)}`}
                     >
-                        {task.status === 'done' ? 'Done' : 'Pending Review'}
+                        {task.status.replace('_', ' ')}
                     </div>
                 ) : (
                     <select
@@ -85,28 +88,13 @@ export function TaskRow({ task, canDelete, onClick }: TaskRowProps) {
                     >
                         <option value="todo">Todo</option>
                         <option value="in_progress">In Progress</option>
-
-                        <option value="done" disabled={!isLeadOrPm}>
-                            Done
-                        </option>
+                        <option value="done">Done</option>
                     </select>
                 )}
             </div>
 
             <div className="flex flex-1 items-center gap-2">
                 <span className="text-sm font-medium">{task.title}</span>
-
-                {showSeekApprovalButton && (
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusChange('pending_review');
-                        }}
-                        className="rounded-full border border-blue-950 bg-blue-700 px-4 py-1 text-[12px] tracking-wider text-white transition-colors hover:bg-blue-800"
-                    >
-                        Request Review
-                    </button>
-                )}
             </div>
 
             <span className="hidden w-32 truncate text-right text-xs text-muted-foreground sm:block">

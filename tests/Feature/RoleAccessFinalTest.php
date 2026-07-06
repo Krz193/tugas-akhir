@@ -76,9 +76,11 @@ class RoleAccessFinalTest extends TestCase
     public function test_update_status_is_team_member_assignee_only(): void
     {
         $pm = $this->createUserWithRole('project-manager');
+        $businessDeveloper = $this->createUserWithRole('business-developer');
         $teamMember = $this->createUserWithRole('team-member');
         $otherTeamMember = $this->createUserWithRole('team-member');
         $project = Project::query()->create(['name' => 'Status Access', 'status' => 'planning']);
+        $this->addMember($project, $businessDeveloper->employee);
         $this->addMember($project, $teamMember->employee);
         $this->addMember($project, $otherTeamMember->employee);
 
@@ -90,6 +92,10 @@ class RoleAccessFinalTest extends TestCase
         ]);
 
         $this->actingAs($pm)
+            ->patch(route('tasks.status.update', $task), ['status' => 'done'])
+            ->assertForbidden();
+
+        $this->actingAs($businessDeveloper)
             ->patch(route('tasks.status.update', $task), ['status' => 'done'])
             ->assertForbidden();
 

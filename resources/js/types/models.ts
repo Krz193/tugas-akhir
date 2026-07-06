@@ -36,7 +36,6 @@ export type AppUser = {
 };
 
 export type ProjectMember = {
-    id: number;
     project_id: number;
     employee_id: number;
     date_joined: string;
@@ -66,7 +65,7 @@ export type Project = {
 };
 
 // Task.
-export type TaskStatus = 'todo' | 'in_progress' | 'pending_review' | 'done';
+export type TaskStatus = 'todo' | 'in_progress' | 'done';
 
 export type Task = {
     id: number;

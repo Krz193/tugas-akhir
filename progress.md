@@ -1306,3 +1306,185 @@ Result: 63 passed, 0 failed.
 
 **Final remaining mismatches:**
 - None found for Step 5E.
+
+---
+
+### Session 19 — Step 5F: Runtime Access and Task Status Flow Fixes
+
+**Scope:** Verified runtime fixes for task status flow, Business Developer status access, and role-based post-login/home redirect.
+
+**Request Review removal:**
+- Removed `pending_review` from backend task status validation.
+- Removed `pending_review` from frontend `TaskStatus`.
+- Removed Request Review button and related conditional rendering.
+- Removed Pending Review display state.
+- No Request Review route or controller method existed.
+
+**Final Task status flow:**
+- Valid task statuses are now:
+  - `todo`
+  - `in_progress`
+  - `done`
+- `UpdateTaskStatusRequest` rejects `pending_review`.
+- My Task status filter accepts only the final statuses.
+
+**BD status-update restriction:**
+- Backend remains protected by `TaskPolicy::updateStatus`.
+- Business Developer direct PATCH to `tasks.status.update` is forbidden.
+- Project Detail task row does not expose editable status controls to Business Developer.
+
+**PM status behavior:**
+- PM can still manage task records through task management flows.
+- PM cannot use the member status-update endpoint.
+- PM sees task status as read-only in task rows.
+
+**Team Member status behavior:**
+- Team Member can update only own assigned task status.
+- Team Member can move own tasks among `todo`, `in_progress`, and `done`.
+- Other Team Members cannot update another assignee's task status.
+
+**Role-based redirect implementation:**
+- Added `app/Http/Responses/RoleBasedLoginResponse.php`.
+- Bound Fortify `LoginResponse` and `TwoFactorLoginResponse` to the role-based response.
+- Login redirect now uses `user.employee.role.slug`:
+  - Project Manager → `/dashboard`
+  - Business Developer → `/dashboard`
+  - Team Member → `/my-tasks`
+- Home route `/` now redirects authenticated users by the same role rule.
+- Guest `/` still renders the welcome page.
+
+**Redirect verification:**
+- PM login redirects to Dashboard.
+- BD login redirects to Dashboard.
+- Team Member login redirects to My Task.
+- Team Member login ignores stale intended `/dashboard` and still redirects to My Task.
+- Authenticated PM/BD opening `/` redirects to Dashboard.
+- Authenticated Team Member opening `/` redirects to My Task.
+
+**Validation:**
+```
+php -l app/Http/Responses/RoleBasedLoginResponse.php
+php -l app/Providers/FortifyServiceProvider.php
+php -l app/Http/Controllers/TaskController.php
+php -l app/Http/Requests/Task/UpdateTaskStatusRequest.php
+php -l routes/web.php
+php -l tests/Feature/Auth/LoginRedirectFinalTest.php
+php -l tests/Feature/RoleAccessFinalTest.php
+php -l tests/Feature/TaskManagementFinalTest.php
+```
+Result: no syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 32 routes, no errors.
+
+```
+npm run types
+npm run lint
+```
+Result: both passed.
+
+```
+php artisan test tests/Feature/Auth/LoginRedirectFinalTest.php tests/Feature/RoleAccessFinalTest.php tests/Feature/TaskManagementFinalTest.php tests/Feature/MyTaskFinalTest.php tests/Feature/Auth/AuthenticationTest.php
+```
+Result: 24 passed.
+
+```
+php artisan test
+```
+Result: 69 passed, 0 failed.
+
+**Request Review scan:**
+- No active production references remain for Request Review or `pending_review`.
+- One test intentionally sends `pending_review` to prove the removed status is rejected.
+
+**Remaining Step 5F runtime issues:**
+- None found.
+
+---
+
+### Session 20 — Step 5F: ERD and Role-Based Project Detail Runtime Fixes
+
+**Scope:** Project member primary key alignment, Business Developer Project Detail UI access, and Business Developer task-detail blackscreen prevention.
+
+**Project member ERD alignment:**
+- `project_members` no longer has standalone `id`.
+- Final columns:
+  - `project_id`
+  - `employee_id`
+  - `is_leader`
+  - `date_joined`
+  - `created_at`
+  - `updated_at`
+- Primary key is now composite:
+  - `PRIMARY KEY (project_id, employee_id)`
+- Removed old unique constraint because composite primary key now enforces uniqueness.
+
+**ProjectMember model/code adjustment:**
+- `ProjectMember::$incrementing = false`.
+- Existing add/remove/sync behavior preserved with explicit `project_id` and `employee_id` queries.
+- Frontend `ProjectMember` type no longer expects `id`.
+- Project Detail member list key now uses `project_id-employee_id`.
+
+**Edit Project visibility result:**
+- PM still sees the Edit Project button.
+- BD no longer sees the Edit Project button.
+- Backend update authorization remains PM-only.
+- Added test coverage proving BD direct project update is forbidden.
+
+**BD Task Detail behavior result:**
+- BD can still view allowed Project Detail.
+- BD task rows in Project Detail no longer open task-detail sheet.
+- `?task=` query param is ignored and cleaned for non-PM Project Detail users.
+- Direct Task Detail endpoint remains forbidden for BD through existing role-access test.
+- PM Task Detail from Project Detail still works.
+- Team Member own Task Detail via My Task still works.
+
+**Blackscreen root cause:**
+- Project Detail rendered task rows as clickable for BD.
+- Click/query-param path tried to open task thread/detail that BD is not authorized to access.
+- UI now prevents that action and fetch error handling closes the task sheet safely if an unauthorized request happens.
+
+**Validation:**
+```
+php artisan migrate:fresh --seed
+```
+Result: migrations and seeders completed successfully.
+
+```
+Schema::getColumnListing('project_members')
+SHOW KEYS FROM project_members WHERE Key_name = 'PRIMARY'
+```
+Result: no `id` column. Primary key columns are `project_id`, then `employee_id`.
+
+```
+php -l database/migrations/2026_04_10_041536_create_project_members_table.php
+php -l app/Models/ProjectMember.php
+php -l tests/Feature/ProjectManagementFinalTest.php
+```
+Result: no syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 32 routes, no errors.
+
+```
+npm run types
+npm run lint
+```
+Result: both passed.
+
+```
+php artisan test tests/Feature/ProjectManagementFinalTest.php tests/Feature/RoleAccessFinalTest.php tests/Feature/TaskManagementFinalTest.php tests/Feature/MessageFlowFinalTest.php tests/Feature/MyTaskFinalTest.php
+```
+Result: 23 passed.
+
+```
+php artisan test
+```
+Result: 71 passed, 0 failed.
+
+**Remaining runtime mismatches:**
+- None found for this Step 5F continuation.

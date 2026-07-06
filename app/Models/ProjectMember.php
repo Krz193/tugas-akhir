@@ -10,6 +10,8 @@ class ProjectMember extends Model
 {
     use HasFactory;
 
+    public $incrementing = false;
+
     protected $fillable = [
         'project_id',
         'employee_id',

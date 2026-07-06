@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -46,6 +47,15 @@ class ProjectManagementFinalTest extends TestCase
             'project_id' => $project->id,
             'employee_id' => $pm->employee->id,
         ]);
+    }
+
+    public function test_project_members_uses_project_and_employee_as_key(): void
+    {
+        $columns = Schema::getColumnListing('project_members');
+
+        $this->assertNotContains('id', $columns);
+        $this->assertContains('project_id', $columns);
+        $this->assertContains('employee_id', $columns);
     }
 
     public function test_pm_can_add_and_remove_project_member_by_employee_id(): void
@@ -122,6 +132,25 @@ class ProjectManagementFinalTest extends TestCase
         $this->actingAs($member)
             ->post(route('projects.store'), ['name' => 'Beta'])
             ->assertForbidden();
+    }
+
+    public function test_business_developer_cannot_update_project(): void
+    {
+        $businessDeveloper = $this->createUserWithRole('business-developer');
+        $project = Project::query()->create(['name' => 'BD Project', 'status' => 'planning']);
+
+        ProjectMember::query()->create([
+            'project_id' => $project->id,
+            'employee_id' => $businessDeveloper->employee->id,
+            'date_joined' => now(),
+            'is_leader' => false,
+        ]);
+
+        $this->actingAs($businessDeveloper)
+            ->patch(route('projects.update', $project), ['name' => 'Changed'])
+            ->assertForbidden();
+
+        $this->assertSame('BD Project', $project->refresh()->name);
     }
 
     private function createUserWithRole(string $roleSlug): User

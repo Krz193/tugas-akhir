@@ -10,6 +10,7 @@ return new class extends Migration
      * Run the migrations.
      *
      * project_members — links employees (not users) to projects.
+     * Primary key: project_id + employee_id.
      * The Project Manager is NOT inserted here automatically.
      * PM oversees all projects globally and is not a project_member record.
      *
@@ -22,14 +23,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('project_members', function (Blueprint $table) {
-            $table->id();
             $table->foreignId('project_id')->constrained()->cascadeOnDelete();
             $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
             $table->boolean('is_leader')->default(false);
             $table->date('date_joined')->nullable();
             $table->timestamps();
 
-            $table->unique(['project_id', 'employee_id']);
+            $table->primary(['project_id', 'employee_id']);
         });
     }
 

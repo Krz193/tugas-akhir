@@ -94,6 +94,11 @@ export default function ProjectShow({
     useEffect(() => {
         if (!taskId) return;
 
+        if (!isPm) {
+            window.history.replaceState({}, '', `/projects/${project.id}`);
+            return;
+        }
+
         const task = project.tasks.find((task) => task.id === Number(taskId));
 
         if (task) {
@@ -101,7 +106,7 @@ export default function ProjectShow({
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [taskId]);
+    }, [taskId, isPm, project.id]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -135,12 +140,14 @@ export default function ProjectShow({
                             )}
                         </div>
 
-                        <Button
-                            variant="outline"
-                            onClick={() => setEditOpen(true)}
-                        >
-                            Edit Project
-                        </Button>
+                        {isPm && (
+                            <Button
+                                variant="outline"
+                                onClick={() => setEditOpen(true)}
+                            >
+                                Edit Project
+                            </Button>
+                        )}
                     </div>
 
                     {/* Tanggal project */}
@@ -215,7 +222,12 @@ export default function ProjectShow({
                                         key={task.id}
                                         task={task}
                                         canDelete={isPm}
-                                        onClick={() => openTaskThread(task)}
+                                        canOpenDetail={isPm}
+                                        onClick={() => {
+                                            if (isPm) {
+                                                openTaskThread(task);
+                                            }
+                                        }}
                                     />
                                 ))}
                             </div>
@@ -242,7 +254,7 @@ export default function ProjectShow({
 
                             return (
                                 <div
-                                    key={member.id}
+                                    key={`${member.project_id}-${member.employee_id}`}
                                     className="flex items-center gap-3 rounded-lg border p-3"
                                 >
                                     {/* Inisial avatar */}

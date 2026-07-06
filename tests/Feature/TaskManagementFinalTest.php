@@ -72,6 +72,25 @@ class TaskManagementFinalTest extends TestCase
         $this->assertSame('done', $task->refresh()->status);
     }
 
+    public function test_request_review_status_is_not_allowed(): void
+    {
+        $assignee = $this->createUserWithRole('team-member');
+        $project = $this->createProjectWithMember($assignee->employee);
+
+        $task = Task::query()->create([
+            'project_id' => $project->id,
+            'assigned_employee_id' => $assignee->employee->id,
+            'title' => 'Implement API',
+            'status' => 'todo',
+        ]);
+
+        $this->actingAs($assignee)
+            ->patch(route('tasks.status.update', $task), ['status' => 'pending_review'])
+            ->assertSessionHasErrors('status');
+
+        $this->assertSame('todo', $task->refresh()->status);
+    }
+
     public function test_non_member_cannot_view_task(): void
     {
         $outsider = $this->createUserWithRole('team-member');
