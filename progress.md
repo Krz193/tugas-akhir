@@ -12,6 +12,7 @@ Source of truth: `AI_IMPLEMENTATION_HANDOFF.md`
 | 2 | Model alignment | ✅ Complete |
 | 3 | Seeder and factory alignment | ✅ Complete |
 | 4 | Controller / use-case alignment | ⏳ In Progress (4A + 4B.1 + 4B.2 + 4B.3 + 4B.4 + 4B.5 + 4B.6 + 4B.7 + 4B.8 done) |
+| 5 | Test and final verification alignment | ⏳ In Progress (5A + 5B + 5C done) |
 
 ---
 
@@ -727,25 +728,59 @@ npm run lint
 ```
 Result: both passed.
 
-Focused tests:
-```
-php artisan test tests/Feature/DashboardTest.php tests/Feature/Auth/AuthenticationTest.php tests/Feature/ProjectManagementTest.php tests/Feature/TaskManagementTest.php tests/Feature/MyTaskEndpointTest.php tests/Feature/MessageThreadTest.php tests/Feature/Settings/ProfileUpdateTest.php
-```
-Result: Dashboard/Auth passed. Project/Task/MyTask/Message/Profile failures are stale tests using removed `users.role_id`, `users.name`, `created_by`, `assigned_to`, `priority`, `position`, `completed_at`, polymorphic messages, `parent_id`, and nested replies.
+---
 
-Full suite:
+### Session 13 — Step 5A: Align Stale Tests With Final Design
+
+**Scope:** stale tests only. No production code changed.
+
+**Obsolete tests removed:**
+- `tests/Feature/ProjectManagerTransferTest.php` — PM transfer removed from final design.
+- `tests/Feature/ReportingContractTest.php` — reporting pages/controllers removed from final design.
+
+**Legacy tests replaced:**
+- Removed old `ProjectManagementTest`, `TaskManagementTest`, `MyTaskEndpointTest`, and `MessageThreadTest`.
+- Added final-design coverage:
+  - `tests/Feature/ProjectManagementFinalTest.php`
+  - `tests/Feature/TaskManagementFinalTest.php`
+  - `tests/Feature/MyTaskFinalTest.php`
+  - `tests/Feature/MessageFlowFinalTest.php`
+
+**Tests rewritten:**
+- `tests/Feature/Auth/RegistrationTest.php`
+  - Now asserts public registration routes are disabled and `/register` is inaccessible.
+- `tests/Feature/Settings/ProfileUpdateTest.php`
+  - Now asserts profile name is stored on `employees.name`, not `users.name`.
+
+**Final coverage added:**
+- Project tests cover PM create, PM global access, member-only access, employee-based project members, and PM not auto-added as member.
+- Task tests cover PM create, `assigned_employee_id`, assignee must be project member, status update by assignee, and non-member denial.
+- My Task tests cover Employee assignee filtering, status/project filters, and invalid status validation.
+- Message tests cover ProjectMessage flow, task Thread + Message flow, sender_id as Employee, flat messages, and task message update authorization.
+
+**Legacy scan result:**
+- No stale active tests remain for `created_by`, `assigned_to`, `priority`, `completed_at`, `position`, polymorphic messages, PM transfer, reports, or direct `users.name`.
+- Remaining `role_id` matches are Employee setup in tests.
+- Remaining `parent_id` / `replies` matches are negative assertions proving removed nested-message fields are absent.
+
+**Validation:**
+```
+php -l <changed test files>
+```
+Result: no syntax errors.
+
+```
+php artisan test tests/Feature/ProjectManagementFinalTest.php tests/Feature/TaskManagementFinalTest.php tests/Feature/MyTaskFinalTest.php tests/Feature/MessageFlowFinalTest.php tests/Feature/Auth/RegistrationTest.php tests/Feature/Settings/ProfileUpdateTest.php
+```
+Result: 23 passed.
+
 ```
 php artisan test
 ```
-Result: 39 passed, 34 failed. Failures classified as stale legacy tests:
-- Registration tests expect public register routes, now intentionally disabled.
-- Project/task/my-task/message/reporting/PM-transfer tests use removed schema/features.
-- Profile test expects `users.name`; final design stores name on `employees.name`.
+Result: 57 passed, 0 failed.
 
-**Remaining work:**
-- Future test cleanup should rewrite or remove stale tests to match final User/Employee, Project/Task, ProjectMessage, Thread/Message, disabled-registration, and removed-feature contracts.
-
----
+**Remaining failures:**
+- None.
 
 ### Session 12 — Step 4B.8: Code Documentation Cleanup
 
@@ -793,3 +828,287 @@ npm run types
 npm run lint
 ```
 Result: both passed.
+
+---
+
+### Session 14 — Step 5B: Class Method Alignment and Final Use-Case Verification
+
+**Scope:** method-name alignment and final use-case verification. No migrations, database structure, or frontend behavior changed.
+
+**Methods renamed and made public:**
+- `DashboardController::projectAndTaskSummary()` → `getProjectSummary()`
+- `DashboardController::recentTaskActivities()` → `getRecentActivities()`
+- `DashboardController::incomingDueTasks()` → `getIncomingDueTasks()`
+- `DashboardController::calendarItems()` → `getCalendarData()`
+- `DashboardController::deadlinesForDate()` → `getDeadlinesByDate()`
+- `DashboardController::timelineProjects()` → `getTimelineData()`
+
+**Custom controller methods renamed:**
+- `TaskController::myTasks()` → `getMyTasks()`
+- `ProjectController::removeMember()` → `deleteMember()`
+- `MessageController::indexProject()` → `getMessagesByProject()`
+- `MessageController::storeProject()` → `sendProjectMessage()`
+- `MessageController::indexTask()` → `getMessagesByThread()`
+- `MessageController::storeTask()` → `sendTaskMessage()`
+
+**Methods intentionally left unchanged:**
+- Laravel CRUD route actions: `index`, `store`, `show`, `update`, `destroy`.
+- Technical helpers not represented in the Class Diagram, such as `accessibleProjectIds()`, `isProjectManager()`, `getAvailableEmployees()`, `syncProjectMembers()`, and `authenticatedEmployeeId()`.
+- Eloquent relationship methods and framework/auth methods.
+
+**Use-case verification result:**
+- Login: Fortify login routes active; authentication tests pass.
+- Lihat Dashboard: dashboard route exists; controller uses aligned public dashboard methods; PM/global and member visibility use Employee role/membership.
+- Kelola User: routes exist; `UserController` creates/updates User + Employee together; role/division/name live on Employee.
+- Kelola Project: routes exist; PM-only create/update/delete; PM not auto-added as member.
+- Kelola Anggota Project: add/delete member routes use Employee ID.
+- Kelola Task: routes exist; PM-only create/update/delete; assignee uses `assigned_employee_id`.
+- Lihat My Task: route action aligned to `getMyTasks()`; filters authenticated Employee assignments.
+- Update Status Task: route exists; PM or assignee can update status.
+- Lihat Detail Project: route exists; loads project, members, tasks, and project messages.
+- Kirim Pesan Project: route action aligned to `sendProjectMessage()`; writes `ProjectMessage`.
+- Lihat Detail Task: route exists; loads task, assignee, project, thread messages.
+- Kirim Pesan Task: route action aligned to `sendTaskMessage()`; resolves Thread and writes Message.
+
+**Architecture verification:**
+- User remains 1-to-1 Employee.
+- Role, division, and name remain Employee-owned.
+- Project membership uses `employee_id`.
+- Task assignment uses `assigned_employee_id`.
+- Project messages use `ProjectMessage`.
+- Task messages use `Thread` + `Message`.
+- Dashboard has no model/table and recent activity uses Task updates.
+- Reports, Division Lead, PM Transfer, Attachment, polymorphic messaging, and public registration remain removed.
+- Login remains active; Kelola User remains the account creation flow.
+
+**Legacy scan result:**
+- No active legacy architecture found in scoped app/routes/frontend/tests.
+- Remaining scan matches are false positives or intentional documentation/negative assertions:
+  - Blade/CSS/browser `body`
+  - `Features::registration()` used only to report disabled `canRegister`
+  - seeder comments explaining removed legacy fields
+  - tests asserting `parent_id` and `replies` are absent
+
+**Validation:**
+```
+php -l app/Http/Controllers/DashboardController.php
+php -l app/Http/Controllers/TaskController.php
+php -l app/Http/Controllers/ProjectController.php
+php -l app/Http/Controllers/MessageController.php
+php -l routes/web.php
+```
+Result: no syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 34 routes, no errors. Login routes present, register routes absent.
+
+```
+npm run types
+npm run lint
+```
+Result: both passed.
+
+```
+php artisan test tests/Feature/DashboardTest.php tests/Feature/Auth/AuthenticationTest.php tests/Feature/ProjectManagementFinalTest.php tests/Feature/TaskManagementFinalTest.php tests/Feature/MyTaskFinalTest.php tests/Feature/MessageFlowFinalTest.php tests/Feature/Settings/ProfileUpdateTest.php tests/Feature/Auth/RegistrationTest.php
+```
+Result: 31 passed.
+
+```
+php artisan test
+```
+Result: 57 passed, 0 failed.
+
+**Remaining work:**
+- None found for Step 5B.
+
+---
+
+### Session 15 — Step 5C: Dashboard UI and Data Contract Alignment
+
+**Scope:** Dashboard UI and Dashboard data props only.
+
+**Files modified:**
+- `app/Http/Controllers/DashboardController.php`
+- `resources/js/pages/dashboard.tsx`
+- `resources/js/components/dashboard/recent-activity-list.tsx`
+
+**Dashboard props aligned:**
+- Kept `projectSummary`, `recentActivities`, `incomingDueTasks`, `calendarData`, and `timelineData`.
+- Renamed `selectedDateDeadlines` to `deadlinesByDate`.
+- Confirmed no remaining dashboard usage of old `summary`, `calendarItems`, or `timelineProjects` props.
+
+**Top layout behavior:**
+- Dashboard now uses a two-column top section on desktop.
+- Left side shows Project Summary with exactly six widgets:
+  - Total Project
+  - Active Project
+  - Completed Project
+  - Overdue Project
+  - Total Task
+  - Unfinished Task
+- Right side shows compact monthly calendar and selected-date deadlines.
+
+**Calendar behavior:**
+- Compact month grid implemented in the dashboard page.
+- Previous/next month buttons change the displayed month.
+- Clicking a date updates the selected deadline list locally.
+- Dates with Project or Task deadlines show a visual dot.
+- Deadline list distinguishes Project and Task items with badges.
+
+**Middle layout behavior:**
+- Two-column desktop layout.
+- Left: Recent Activities.
+- Right: Incoming Due Tasks.
+- Both lists use balanced max-height containers.
+
+**Recent Activities behavior:**
+- Recent Activities remains sourced only from `Task.updated_at`.
+- The list shows task title, project name, status, and updated time.
+- Container scrolls vertically when items exceed visible height.
+- It does not claim that a status change happened.
+
+**Incoming Due Tasks behavior:**
+- Shows unfinished tasks from today through the next 7 days.
+- Displays task title, project name, due date, and status.
+- Uses a simple scrollable list.
+
+**Timeline behavior:**
+- Bottom section is full-width.
+- Timeline uses `timelineData` from Project only.
+- Displays project names in a left sticky label column.
+- Displays week columns grouped visually by month label.
+- Shows one horizontal bar per Project using `startDate` and `dueDate`.
+- Timeline scrolls horizontally when wider than the container.
+
+**Legacy component reuse note:**
+- Legacy report calendar/timeline components were already removed in Step 4A and are not present in the current tree.
+- Step 5C reused the same practical interaction patterns instead of restoring report routes/pages or removed report components.
+
+**Validation:**
+```
+php -l app/Http/Controllers/DashboardController.php
+```
+Result: no syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 34 routes, no errors.
+
+```
+npm run types
+npm run lint
+```
+Result: both passed.
+
+```
+php artisan test tests/Feature/DashboardTest.php
+```
+Result: 2 passed.
+
+```
+php artisan test
+```
+Result: 57 passed, 0 failed.
+
+**Remaining Dashboard UI mismatches:**
+- None found for Step 5C.
+
+---
+
+### Session 16 — Step 5D: User Management UI and Role Access Alignment
+
+**Scope:** Kelola User UI, sidebar/header role visibility, and direct route/backend access.
+
+**Files modified:**
+- `app/Http/Controllers/DashboardController.php`
+- `app/Http/Controllers/TaskController.php`
+- `app/Policies/ProjectPolicy.php`
+- `app/Policies/TaskPolicy.php`
+- `app/Policies/MessagePolicy.php`
+- `resources/js/components/app-sidebar.tsx`
+- `resources/js/components/app-header.tsx`
+- `resources/js/pages/users/index.tsx`
+- `tests/Feature/DashboardTest.php`
+- `tests/Feature/ProjectManagementFinalTest.php`
+- `tests/Feature/MessageFlowFinalTest.php`
+- `tests/Feature/RoleAccessFinalTest.php`
+- `tests/Feature/UserManagementFinalTest.php`
+
+**Kelola User UI:**
+- User management page now shows a table with:
+  - employee name
+  - email
+  - role
+  - division
+  - phone
+  - address
+  - action buttons
+- Existing add, edit, and delete flows remain tied to `UserController`.
+- Forms keep User fields on `users` and profile fields on `employees`.
+- Delete still uses confirmation before request.
+
+**Sidebar/header visibility:**
+- Project Manager sees Dashboard, Users, and Projects.
+- Business Developer sees Dashboard and Projects.
+- Team Member sees My Tasks only.
+- Project Manager no longer sees My Tasks.
+- Logo/home link goes to Dashboard for PM/BD and My Tasks for Team Member.
+
+**Direct backend access fixes:**
+- Dashboard direct URL is allowed only for Project Manager and Business Developer.
+- My Task direct URL is allowed only for Team Member.
+- Project list/detail is allowed for Project Manager and relevant Business Developer.
+- Team Member cannot open Project detail even when listed as project member.
+- Project task listing is PM-only.
+- Task detail is allowed for PM and assigned Team Member only.
+- Task status update is allowed only for assigned Team Member.
+- Project messages are allowed for PM and relevant Business Developer.
+- Task messages are allowed for PM and assigned Team Member.
+
+**Validation:**
+```
+php -l app/Policies/ProjectPolicy.php
+php -l app/Policies/TaskPolicy.php
+php -l app/Policies/MessagePolicy.php
+php -l app/Http/Controllers/DashboardController.php
+php -l app/Http/Controllers/TaskController.php
+php -l tests/Feature/RoleAccessFinalTest.php
+php -l tests/Feature/UserManagementFinalTest.php
+php -l tests/Feature/DashboardTest.php
+php -l tests/Feature/ProjectManagementFinalTest.php
+php -l tests/Feature/MessageFlowFinalTest.php
+```
+Result: no syntax errors.
+
+```
+php artisan route:list --except-vendor
+```
+Result: 34 routes, no errors. Public registration route remains absent.
+
+```
+npm run types
+npm run lint
+```
+Result: both passed.
+
+```
+php artisan test tests/Feature/UserManagementFinalTest.php
+php artisan test tests/Feature/RoleAccessFinalTest.php
+php artisan test tests/Feature/DashboardTest.php tests/Feature/ProjectManagementFinalTest.php tests/Feature/TaskManagementFinalTest.php tests/Feature/MyTaskFinalTest.php tests/Feature/MessageFlowFinalTest.php
+```
+Result: focused user, role, and affected flow tests passed.
+
+```
+php artisan test
+```
+Result: 65 passed, 0 failed.
+
+**Legacy/access scan:**
+- No active production references found for removed legacy fields/features in scoped scan.
+- Remaining `parent_id` / `replies` hits are tests asserting old message fields are absent.
+
+**Remaining access mismatches:**
+- None found for Step 5D.
