@@ -26,7 +26,6 @@ class EmployeeFactory extends Factory
             'name'        => fake()->name(),
             'phone'       => null,
             'address'     => null,
-            'avatar_url'  => null,
         ];
     }
 

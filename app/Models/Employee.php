@@ -18,7 +18,6 @@ class Employee extends Model
         'name',
         'phone',
         'address',
-        'avatar_url',
     ];
 
     public function user(): BelongsTo

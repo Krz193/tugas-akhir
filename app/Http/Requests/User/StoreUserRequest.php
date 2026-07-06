@@ -25,7 +25,6 @@ class StoreUserRequest extends FormRequest
             'division_id' => ['required', 'integer', Rule::exists(Division::class, 'id')],
             'phone' => ['nullable', 'string', 'max:50'],
             'address' => ['nullable', 'string'],
-            'avatar_url' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

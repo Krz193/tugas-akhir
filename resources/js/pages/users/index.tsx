@@ -33,7 +33,6 @@ type Employee = {
     division_id: number;
     phone: string | null;
     address: string | null;
-    avatar_url: string | null;
     role: Role | null;
     division: Division | null;
 };
@@ -53,7 +52,6 @@ type UserFormData = {
     division_id: string;
     phone: string;
     address: string;
-    avatar_url: string;
 };
 
 type Props = {
@@ -74,7 +72,6 @@ function emptyForm(): UserFormData {
         division_id: '',
         phone: '',
         address: '',
-        avatar_url: '',
     };
 }
 
@@ -88,7 +85,6 @@ function formFromUser(user: ManagedUser): UserFormData {
         division_id: user.employee?.division_id?.toString() ?? '',
         phone: user.employee?.phone ?? '',
         address: user.employee?.address ?? '',
-        avatar_url: user.employee?.avatar_url ?? '',
     };
 }
 
@@ -265,18 +261,6 @@ function UserFormDialog({
                             }
                         />
                         <InputError message={errors.address} />
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="avatar_url">Avatar URL</Label>
-                        <Input
-                            id="avatar_url"
-                            value={data.avatar_url}
-                            onChange={(event) =>
-                                setData('avatar_url', event.target.value)
-                            }
-                        />
-                        <InputError message={errors.avatar_url} />
                     </div>
 
                     <div className="flex justify-end gap-2">

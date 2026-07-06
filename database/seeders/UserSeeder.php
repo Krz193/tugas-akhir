@@ -15,7 +15,7 @@ class UserSeeder extends Seeder
      * Creates 5 users (auth accounts) with a corresponding Employee profile each.
      *
      * User  — authentication data only: email, password, email_verified_at.
-     * Employee — profile data: user_id, role_id, division_id, name, phone, address, avatar_url.
+     * Employee — profile data: user_id, role_id, division_id, name, phone, address.
      *
      * Login accounts:
      *   pm@djitugo.test      → Project Manager   (Engineering)
