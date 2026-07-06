@@ -9,14 +9,13 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ProfileController extends Controller
 {
-    /**
-     * Show the user's profile settings page.
-     */
+    /** Menampilkan halaman profil user. */
     public function edit(Request $request): Response
     {
         return Inertia::render('settings/profile', [
@@ -25,25 +24,33 @@ class ProfileController extends Controller
         ]);
     }
 
-    /**
-     * Update the user's profile information.
-     */
+    /** Mengubah data profil user. */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $validated = $request->validated();
+        $user = $request->user();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
+        DB::transaction(function () use ($user, $validated): void {
+            $user->fill([
+                'email' => $validated['email'],
+            ]);
 
-        $request->user()->save();
+            if ($user->isDirty('email')) {
+                $user->email_verified_at = null;
+            }
+
+            $user->save();
+
+            $user->employee()->updateOrCreate(
+                ['user_id' => $user->id],
+                ['name' => $validated['name']]
+            );
+        });
 
         return to_route('profile.edit');
     }
 
-    /**
-     * Delete the user's profile.
-     */
+    /** Menghapus akun user. */
     public function destroy(ProfileDeleteRequest $request): RedirectResponse
     {
         $user = $request->user();

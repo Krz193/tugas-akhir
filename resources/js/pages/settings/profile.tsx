@@ -28,6 +28,7 @@ export default function Profile({
     status?: string;
 }) {
     const { auth } = usePage<SharedData>().props;
+    const employee = auth.user.employee as { name?: string } | undefined;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -44,7 +45,8 @@ export default function Profile({
                     />
 
                     <Form
-                        {...ProfileController.update.form()}
+                        action={ProfileController.update.url()}
+                        method="patch"
                         options={{
                             preserveScroll: true,
                         }}
@@ -58,7 +60,7 @@ export default function Profile({
                                     <Input
                                         id="name"
                                         className="mt-1 block w-full"
-                                        defaultValue={auth.user.name}
+                                        defaultValue={employee?.name ?? ''}
                                         name="name"
                                         required
                                         autoComplete="name"

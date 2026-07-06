@@ -11,7 +11,7 @@ class ProfileUpdateRequest extends FormRequest
     use ProfileValidationRules;
 
     /**
-     * Get the validation rules that apply to the request.
+     * Aturan validasi untuk ubah profil.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
