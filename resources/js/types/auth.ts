@@ -18,7 +18,6 @@ export type AuthEmployee = {
     name: string;
     phone?: string | null;
     address?: string | null;
-    avatar_url?: string | null;
     role?: AuthRole | null;
     division?: AuthDivision | null;
 };

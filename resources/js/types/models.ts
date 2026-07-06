@@ -20,7 +20,6 @@ export type Employee = {
     name: string;
     phone?: string | null;
     address?: string | null;
-    avatar_url?: string | null;
     role?: Role | null;
     division?: Division | null;
     created_at: string;

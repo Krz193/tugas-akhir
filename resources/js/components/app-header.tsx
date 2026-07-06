@@ -8,7 +8,7 @@ import {
     Users,
 } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -58,7 +58,6 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
     const getInitials = useInitials();
     const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
     const displayName = auth.user.employee?.name ?? auth.user.email;
-    const avatarUrl = auth.user.employee?.avatar_url ?? undefined;
     const roleSlug = auth.user.employee?.role?.slug;
     const canViewDashboard =
         roleSlug === 'project-manager' || roleSlug === 'business-developer';
@@ -201,10 +200,6 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                     className="size-10 rounded-full p-1"
                                 >
                                     <Avatar className="size-8 overflow-hidden rounded-full">
-                                        <AvatarImage
-                                            src={avatarUrl}
-                                            alt={displayName}
-                                        />
                                         <AvatarFallback className="rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
                                             {getInitials(displayName)}
                                         </AvatarFallback>
