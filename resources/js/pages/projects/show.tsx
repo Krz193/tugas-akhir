@@ -173,6 +173,8 @@ export default function ProjectShow({
                     <ThreadSection
                         messages={projectMessages}
                         postUrl={`/projects/${project.id}/messages`}
+                        realtimeChannel={`projects.${project.id}`}
+                        realtimeEvent=".project.message.sent"
                     />
                 </div>
 

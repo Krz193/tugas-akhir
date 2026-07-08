@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ProjectMessageSent;
+use App\Events\TaskMessageSent;
 use App\Http\Requests\Message\StoreMessageRequest;
 use App\Models\Message;
 use App\Models\Project;
@@ -49,11 +51,13 @@ class MessageController extends Controller
     /** Menyimpan pesan project. */
     public function sendProjectMessage(StoreMessageRequest $request, Project $project): RedirectResponse
     {
-        ProjectMessage::query()->create([
+        $projectMessage = ProjectMessage::query()->create([
             'project_id' => $project->id,
             'sender_id' => $this->authenticatedEmployeeId($request),
             'message_body' => $request->validated('message_body'),
         ]);
+
+        broadcast(new ProjectMessageSent($projectMessage))->toOthers();
 
         return redirect()->back();
     }
@@ -65,11 +69,13 @@ class MessageController extends Controller
             'task_id' => $task->id,
         ]);
 
-        Message::query()->create([
+        $message = Message::query()->create([
             'thread_id' => $thread->id,
             'sender_id' => $this->authenticatedEmployeeId($request),
             'message_body' => $request->validated('message_body'),
         ]);
+
+        broadcast(new TaskMessageSent($message, $task->id))->toOthers();
 
         return redirect()->back();
     }

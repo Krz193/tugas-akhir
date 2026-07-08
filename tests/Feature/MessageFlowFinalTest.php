@@ -11,6 +11,7 @@ use App\Models\Role;
 use App\Models\Task;
 use App\Models\Thread;
 use App\Models\User;
+use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -96,6 +97,84 @@ class MessageFlowFinalTest extends TestCase
             ->assertJsonPath('data.0.message_body', 'Flat task message')
             ->assertJsonMissingPath('data.0.replies')
             ->assertJsonMissingPath('data.0.parent_id');
+    }
+
+    public function test_project_message_channel_uses_project_access_rules(): void
+    {
+        $this->useReverbForChannelAuth();
+
+        $projectManager = $this->createUserWithRole('project-manager');
+        $businessDeveloper = $this->createUserWithRole('business-developer');
+        $project = $this->createProjectWithMember($businessDeveloper->employee);
+
+        $this->actingAs($projectManager)
+            ->post('/broadcasting/auth', [
+                'channel_name' => 'private-projects.'.$project->id,
+                'socket_id' => '123.456',
+            ])
+            ->assertOk();
+
+        $this->actingAs($businessDeveloper)
+            ->post('/broadcasting/auth', [
+                'channel_name' => 'private-projects.'.$project->id,
+                'socket_id' => '123.456',
+            ])
+            ->assertOk();
+    }
+
+    public function test_task_message_channel_uses_task_access_rules(): void
+    {
+        $this->useReverbForChannelAuth();
+
+        $projectManager = $this->createUserWithRole('project-manager');
+        $member = $this->createUserWithRole('team-member');
+        $project = $this->createProjectWithMember($member->employee);
+        $task = $this->createTask($project, $member->employee);
+
+        $this->actingAs($projectManager)
+            ->post('/broadcasting/auth', [
+                'channel_name' => 'private-tasks.'.$task->id,
+                'socket_id' => '123.456',
+            ])
+            ->assertOk();
+
+        $this->actingAs($member)
+            ->post('/broadcasting/auth', [
+                'channel_name' => 'private-tasks.'.$task->id,
+                'socket_id' => '123.456',
+            ])
+            ->assertOk();
+    }
+
+    public function test_business_developer_cannot_authorize_task_message_channel(): void
+    {
+        $this->useReverbForChannelAuth();
+
+        $businessDeveloper = $this->createUserWithRole('business-developer');
+        $member = $this->createUserWithRole('team-member');
+        $project = $this->createProjectWithMember($businessDeveloper->employee);
+        $task = $this->createTask($project, $member->employee);
+
+        $this->actingAs($businessDeveloper)
+            ->post('/broadcasting/auth', [
+                'channel_name' => 'private-tasks.'.$task->id,
+                'socket_id' => '123.456',
+            ])
+            ->assertForbidden();
+    }
+
+    private function useReverbForChannelAuth(): void
+    {
+        config([
+            'broadcasting.default' => 'reverb',
+            'broadcasting.connections.reverb.key' => 'local',
+            'broadcasting.connections.reverb.secret' => 'local',
+            'broadcasting.connections.reverb.app_id' => 'local',
+        ]);
+
+        $this->app->make(BroadcastManager::class)->forgetDrivers();
+
+        require base_path('routes/channels.php');
     }
 
     private function createTask(Project $project, Employee $assignee): Task
