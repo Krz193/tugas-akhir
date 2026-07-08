@@ -1,5 +1,6 @@
 import { useForm } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useAuthUser } from '@/hooks/use-auth-user';
 import echo from '@/lib/echo';
 import type { Message, ProjectMessage } from '@/types/models';
 import { MessageCard } from './message-card';
@@ -23,8 +24,12 @@ export function ThreadSection({
     realtimeChannel,
     realtimeEvent,
 }: ThreadSectionProps) {
+    const { user } = useAuthUser();
+    const currentEmployeeId = user.employee?.id ?? null;
+
     const [visibleMessages, setVisibleMessages] =
         useState<Array<Message | ProjectMessage>>(messages);
+    const messageListRef = useRef<HTMLDivElement | null>(null);
 
     const { data, setData, post, processing, reset, errors } = useForm({
         message_body: '',
@@ -33,6 +38,16 @@ export function ThreadSection({
     useEffect(() => {
         setVisibleMessages(messages);
     }, [messages]);
+
+    useEffect(() => {
+        const messageList = messageListRef.current;
+
+        if (!messageList) {
+            return;
+        }
+
+        messageList.scrollTop = messageList.scrollHeight;
+    }, [visibleMessages]);
 
     useEffect(() => {
         if (!realtimeChannel || !realtimeEvent) {
@@ -67,11 +82,18 @@ export function ThreadSection({
                     No discussion yet.
                 </div>
             ) : (
-                <div className="space-y-4">
+                <div
+                    ref={messageListRef}
+                    className="max-h-[28rem] space-y-3 overflow-y-auto rounded-lg border bg-background p-3"
+                >
                     {visibleMessages.map((message) => (
                         <MessageCard
                             key={message.id}
                             message={message}
+                            isOwnMessage={
+                                currentEmployeeId !== null &&
+                                message.sender_id === currentEmployeeId
+                            }
                         />
                     ))}
                 </div>
