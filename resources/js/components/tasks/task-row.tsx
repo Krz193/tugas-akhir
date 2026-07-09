@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 
 import { useAuthUser } from '@/hooks/use-auth-user';
 
@@ -30,15 +30,19 @@ function statusSelectClass(status: TaskStatus) {
 type TaskRowProps = {
     task: Task;
     canDelete: boolean;
+    canEdit?: boolean;
     canOpenDetail?: boolean;
     onClick: () => void;
+    onEdit?: () => void;
 };
 
 export function TaskRow({
     task,
     canDelete,
+    canEdit = false,
     canOpenDetail = true,
     onClick,
+    onEdit,
 }: TaskRowProps) {
     const { user, isTeamMember } = useAuthUser();
 
@@ -105,17 +109,34 @@ export function TaskRow({
                 {task.due_date ? formatDate(task.due_date) : '—'}
             </span>
 
-            {canDelete && (
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete();
-                    }}
-                    className="text-muted-foreground hover:text-destructive"
-                    title="Delete task"
-                >
-                    <Trash2 className="h-4 w-4" />
-                </button>
+            {(canEdit || canDelete) && (
+                <div className="flex w-16 justify-end gap-2">
+                    {canEdit && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit?.();
+                            }}
+                            className="text-muted-foreground hover:text-foreground"
+                            title="Edit task"
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </button>
+                    )}
+
+                    {canDelete && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete();
+                            }}
+                            className="text-muted-foreground hover:text-destructive"
+                            title="Delete task"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
             )}
         </div>
     );

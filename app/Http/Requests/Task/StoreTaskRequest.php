@@ -36,11 +36,12 @@ class StoreTaskRequest extends FormRequest
                     }
 
                     $allowed = $project->members()
+                        ->whereHas('employee.role', fn ($query) => $query->where('slug', 'team-member'))
                         ->where('employee_id', (int) $value)
                         ->exists();
 
                     if (! $allowed) {
-                        $fail('The selected assignee must be a project member.');
+                        $fail('The selected assignee must be a Team Member project member.');
                     }
                 },
             ],

@@ -25,6 +25,7 @@ class UpdateTaskRequest extends FormRequest
         return [
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
+            'status' => ['sometimes', 'required', 'in:todo,in_progress,done'],
             'assigned_employee_id' => [
                 'sometimes',
                 'nullable',
@@ -36,11 +37,12 @@ class UpdateTaskRequest extends FormRequest
                     }
 
                     $allowed = $task->project->members()
+                        ->whereHas('employee.role', fn ($query) => $query->where('slug', 'team-member'))
                         ->where('employee_id', (int) $value)
                         ->exists();
 
                     if (! $allowed) {
-                        $fail('The selected assignee must be a project member.');
+                        $fail('The selected assignee must be a Team Member project member.');
                     }
                 },
             ],

@@ -1,9 +1,10 @@
 import { Head, useForm } from '@inertiajs/react';
-import { CalendarDays, Plus } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock, Circle, Plus } from 'lucide-react';
 import { useEffect } from 'react';
 import { useState } from 'react';
 import ProjectForm from '@/components/projects/project-form';
 import { CreateTaskDialog } from '@/components/tasks/create-task-dialog';
+import { EditTaskDialog } from '@/components/tasks/edit-task-dialog';
 import { TaskRow } from '@/components/tasks/task-row';
 import { TaskThreadSheet } from '@/components/tasks/task-thread-sheet';
 import { ThreadSection } from '@/components/thread/thread-section';
@@ -25,6 +26,7 @@ import type {
     ProjectMember,
     ProjectMessage,
     Task,
+    TaskStatus,
 } from '@/types';
 import type { AvailableEmployee, ProjectFormData } from '@/types/project';
 
@@ -49,6 +51,84 @@ function formatDate(date: string | null) {
     });
 }
 
+function statusLabel(status: TaskStatus) {
+    if (status === 'in_progress') return 'In Progress';
+    if (status === 'done') return 'Done';
+    return 'Todo';
+}
+
+function taskProgressValue(status: TaskStatus) {
+    if (status === 'done') return 100;
+    if (status === 'in_progress') return 50;
+    return 0;
+}
+
+function statusColorClass(status: TaskStatus) {
+    if (status === 'done') return 'text-green-600';
+    if (status === 'in_progress') return 'text-blue-600';
+    return 'text-gray-500';
+}
+
+function progressColorClass(status: TaskStatus) {
+    if (status === 'done') return 'bg-green-500';
+    if (status === 'in_progress') return 'bg-blue-500';
+    return 'bg-gray-400';
+}
+
+function TaskStatusIcon({ status }: { status: TaskStatus }) {
+    const className = `h-4 w-4 ${statusColorClass(status)}`;
+
+    if (status === 'done') return <CheckCircle2 className={className} />;
+    if (status === 'in_progress') return <Clock className={className} />;
+    return <Circle className={className} />;
+}
+
+function SectionedTaskProgress({ status }: { status: TaskStatus }) {
+    const sections: TaskStatus[] = ['todo', 'in_progress', 'done'];
+
+    return (
+        <div className="grid grid-cols-3 gap-1">
+            {sections.map((section) => (
+                <div
+                    key={section}
+                    className={`h-1.5 rounded-full ${
+                        section === status
+                            ? progressColorClass(status)
+                            : 'bg-muted'
+                    }`}
+                />
+            ))}
+        </div>
+    );
+}
+
+function MemberTotalProgress({ tasks }: { tasks: Task[] }) {
+    const totalProgress =
+        tasks.length === 0
+            ? 0
+            : Math.round(
+                  tasks.reduce(
+                      (total, task) => total + taskProgressValue(task.status),
+                      0,
+                  ) / tasks.length,
+              );
+
+    return (
+        <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Total progress</span>
+                <span>{totalProgress}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: `${totalProgress}%` }}
+                />
+            </div>
+        </div>
+    );
+}
+
 // Halaman detail project.
 export default function ProjectShow({
     project,
@@ -58,6 +138,8 @@ export default function ProjectShow({
 }: Props) {
     const { isProjectManager } = useAuthUser();
     const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+    const [taskEditOpen, setTaskEditOpen] = useState(false);
+    const [taskBeingEdited, setTaskBeingEdited] = useState<Task | null>(null);
 
     const [editOpen, setEditOpen] = useState(false);
 
@@ -81,6 +163,11 @@ export default function ProjectShow({
     } = useTaskThread();
 
     const isPm = isProjectManager();
+
+    function openTaskEdit(task: Task) {
+        setTaskBeingEdited(task);
+        setTaskEditOpen(true);
+    }
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Projects', href: '/projects' },
@@ -215,7 +302,7 @@ export default function ProjectShow({
                                 <span className="w-24 text-right">
                                     Due Date
                                 </span>
-                                {isPm && <span className="w-4" />}
+                                {isPm && <span className="w-16" />}
                             </div>
 
                             <div className="">
@@ -224,12 +311,14 @@ export default function ProjectShow({
                                         key={task.id}
                                         task={task}
                                         canDelete={isPm}
+                                        canEdit={isPm}
                                         canOpenDetail={isPm}
                                         onClick={() => {
                                             if (isPm) {
                                                 openTaskThread(task);
                                             }
                                         }}
+                                        onEdit={() => openTaskEdit(task)}
                                     />
                                 ))}
                             </div>
@@ -237,16 +326,16 @@ export default function ProjectShow({
                     )}
                 </div>
 
-                {/* Anggota project */}
+                {/* Visualisasi task per anggota */}
                 <div>
                     <h2 className="mb-3 font-semibold">
-                        Members{' '}
+                        Member Task Overview{' '}
                         <span className="font-normal text-muted-foreground">
                             ({project.members.length})
                         </span>
                     </h2>
 
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-4 lg:grid-cols-2">
                         {project.members.map((member) => {
                             const employee = member.employee;
 
@@ -254,27 +343,86 @@ export default function ProjectShow({
                                 return null;
                             }
 
+                            const assignedTasks = project.tasks.filter(
+                                (task) =>
+                                    task.assigned_employee_id ===
+                                    member.employee_id,
+                            );
+
                             return (
                                 <div
                                     key={`${member.project_id}-${member.employee_id}`}
-                                    className="flex items-center gap-3 rounded-lg border p-3"
+                                    className="space-y-4 rounded-lg border p-4"
                                 >
-                                    {/* Inisial avatar */}
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                                        {employee.name
-                                            .split(' ')
-                                            .map((n) => n[0])
-                                            .join('')
-                                            .slice(0, 2)
-                                            .toUpperCase()}
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            {/* Inisial avatar */}
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                                                {employee.name
+                                                    .split(' ')
+                                                    .map((n) => n[0])
+                                                    .join('')
+                                                    .slice(0, 2)
+                                                    .toUpperCase()}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-medium">
+                                                    {employee.name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {employee.division?.name ??
+                                                        'No Division'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-right">
+                                            <p className="text-lg font-semibold">
+                                                {assignedTasks.length}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                assigned tasks
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-medium">
-                                            {employee.name}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {employee.role?.name ?? '—'}
-                                        </p>
+
+                                    <MemberTotalProgress
+                                        tasks={assignedTasks}
+                                    />
+
+                                    <div className="space-y-3">
+                                        {assignedTasks.length === 0 ? (
+                                            <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+                                                No assigned tasks.
+                                            </p>
+                                        ) : (
+                                            assignedTasks.map((task) => (
+                                                <div
+                                                    key={task.id}
+                                                    className="space-y-2 border-t pt-3 first:border-t-0 first:pt-0"
+                                                >
+                                                    <div className="flex items-start gap-2">
+                                                        <TaskStatusIcon
+                                                            status={task.status}
+                                                        />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="truncate text-sm font-medium">
+                                                                {task.title}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {statusLabel(
+                                                                    task.status,
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <SectionedTaskProgress
+                                                        status={task.status}
+                                                    />
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -295,6 +443,14 @@ export default function ProjectShow({
                 assignees={assignees}
                 open={taskDialogOpen}
                 onOpenChange={setTaskDialogOpen}
+            />
+
+            {/* Dialog edit task */}
+            <EditTaskDialog
+                task={taskBeingEdited}
+                assignees={assignees}
+                open={taskEditOpen}
+                onOpenChange={setTaskEditOpen}
             />
 
             {/* Diskusi task */}
