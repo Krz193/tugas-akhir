@@ -29,7 +29,7 @@ class ProjectController extends Controller
         $projects = Project::query()
             ->withCount(['tasks', 'members'])
             ->when(
-                ! $this->isProjectManager($user),
+                ! $this->isProjectManager($user) && ! $this->isBusinessDeveloper($user),
                 fn ($query) => $query->whereHas(
                     'members',
                     fn ($memberQuery) => $memberQuery->where('employee_id', $employeeId)
@@ -148,10 +148,16 @@ class ProjectController extends Controller
         return $user?->employee?->role?->slug === 'project-manager';
     }
 
+    private function isBusinessDeveloper($user): bool
+    {
+        return $user?->employee?->role?->slug === 'business-developer';
+    }
+
     private function getAvailableEmployees()
     {
         return Employee::query()
             ->with(['role', 'division'])
+            ->whereHas('role', fn ($query) => $query->where('slug', 'team-member'))
             ->orderBy('name')
             ->get();
     }
@@ -160,7 +166,7 @@ class ProjectController extends Controller
     {
         return $project->members
             ->pluck('employee')
-            ->filter()
+            ->filter(fn ($employee) => $employee?->role?->slug === 'team-member')
             ->values();
     }
 

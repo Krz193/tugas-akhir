@@ -23,7 +23,23 @@ class StoreProjectRequest extends FormRequest
             'start_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'member_ids' => ['nullable', 'array'],
-            'member_ids.*' => ['integer', Rule::exists(Employee::class, 'id')],
+            'member_ids.*' => [
+                'integer',
+                Rule::exists(Employee::class, 'id'),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! $this->isTeamMemberEmployee((int) $value)) {
+                        $fail('The selected project member must be a Team Member.');
+                    }
+                },
+            ],
         ];
+    }
+
+    private function isTeamMemberEmployee(int $employeeId): bool
+    {
+        return Employee::query()
+            ->whereKey($employeeId)
+            ->whereHas('role', fn ($query) => $query->where('slug', 'team-member'))
+            ->exists();
     }
 }

@@ -28,8 +28,21 @@ class AddProjectMemberRequest extends FormRequest
                 'integer',
                 Rule::exists(Employee::class, 'id'),
                 Rule::unique('project_members', 'employee_id')->where(fn ($q) => $q->where('project_id', $project->id)),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! $this->isTeamMemberEmployee((int) $value)) {
+                        $fail('The selected project member must be a Team Member.');
+                    }
+                },
             ],
             'is_leader' => ['nullable', 'boolean'],
         ];
+    }
+
+    private function isTeamMemberEmployee(int $employeeId): bool
+    {
+        return Employee::query()
+            ->whereKey($employeeId)
+            ->whereHas('role', fn ($query) => $query->where('slug', 'team-member'))
+            ->exists();
     }
 }

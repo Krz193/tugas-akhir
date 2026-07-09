@@ -17,28 +17,16 @@ class ProjectPolicy
         return $user->employee?->role?->slug === 'business-developer';
     }
 
-    private function isMember(User $user, Project $project): bool
-    {
-        $employeeId = $user->employee?->id;
-
-        if ($employeeId === null) {
-            return false;
-        }
-
-        return $project->members()->where('employee_id', $employeeId)->exists();
-    }
-
     /** User login boleh membuka daftar project. */
     public function viewAny(User $user): bool
     {
         return $this->isPm($user) || $this->isBusinessDeveloper($user);
     }
 
-    /** PM melihat semua project. BD melihat project yang diikuti. */
+    /** PM dan BD melihat semua project. */
     public function view(User $user, Project $project): bool
     {
-        return $this->isPm($user)
-            || ($this->isBusinessDeveloper($user) && $this->isMember($user, $project));
+        return $this->isPm($user) || $this->isBusinessDeveloper($user);
     }
 
     /** Hanya PM yang boleh membuat project. */

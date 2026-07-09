@@ -24,17 +24,6 @@ class MessagePolicy
         return $user->employee?->role?->slug === 'team-member';
     }
 
-    private function isProjectMember(User $user, Project $project): bool
-    {
-        $employeeId = $user->employee?->id;
-
-        if ($employeeId === null) {
-            return false;
-        }
-
-        return $project->members()->where('employee_id', $employeeId)->exists();
-    }
-
     /** Mengecek apakah member pemilik task dapat membaca thread. */
     private function canAccessThread(User $user, Message $message): bool
     {
@@ -72,7 +61,7 @@ class MessagePolicy
         }
 
         if ($owner instanceof Project) {
-            return $this->isBusinessDeveloper($user) && $this->isProjectMember($user, $owner);
+            return $this->isBusinessDeveloper($user);
         }
 
         $employeeId = $user->employee?->id;
