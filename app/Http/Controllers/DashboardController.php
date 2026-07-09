@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Employee;
 use App\Models\Project;
 use App\Models\Task;
 use Illuminate\Http\Request;
@@ -15,10 +16,14 @@ class DashboardController extends Controller
         $this->ensureCanViewDashboard($request);
 
         $selectedDate = $request->date('date') ?? today();
+        $selectedEmployeeId = $this->selectedTeamMemberId($request);
         $accessibleProjectIds = $this->accessibleProjectIds($request);
 
         return Inertia::render('dashboard', [
-            'projectSummary' => $this->getProjectSummary($accessibleProjectIds),
+            'projectSummary' => $this->getProjectSummary($accessibleProjectIds, $selectedEmployeeId),
+            'metricRecords' => $this->getMetricRecords($accessibleProjectIds, $selectedEmployeeId),
+            'teamMembers' => $this->getTeamMembers(),
+            'selectedEmployeeId' => $selectedEmployeeId,
             'recentActivities' => $this->getRecentActivities($accessibleProjectIds),
             'incomingDueTasks' => $this->getIncomingDueTasks($accessibleProjectIds),
             'calendarData' => $this->getCalendarData($accessibleProjectIds),
@@ -32,11 +37,15 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         $employeeId = $user?->employee?->id;
-        $isProjectManager = $user?->employee?->role?->slug === 'project-manager';
+        $hasGlobalDashboardAccess = in_array(
+            $user?->employee?->role?->slug,
+            ['project-manager', 'business-developer'],
+            true,
+        );
 
         $projectsQuery = Project::query();
 
-        if (! $isProjectManager) {
+        if (! $hasGlobalDashboardAccess) {
             $projectsQuery->whereHas('members', function ($memberQuery) use ($employeeId): void {
                 $memberQuery->where('employee_id', $employeeId);
             });
@@ -54,7 +63,37 @@ class DashboardController extends Controller
         }
     }
 
-    public function getProjectSummary($projectIds): array
+    private function selectedTeamMemberId(Request $request): ?int
+    {
+        $employeeId = $request->integer('employee_id');
+
+        if (! $employeeId) {
+            return null;
+        }
+
+        $isTeamMember = Employee::query()
+            ->whereKey($employeeId)
+            ->whereHas('role', function ($roleQuery): void {
+                $roleQuery->where('slug', 'team-member');
+            })
+            ->exists();
+
+        return $isTeamMember ? $employeeId : null;
+    }
+
+    private function taskMetricQuery($projectIds, ?int $selectedEmployeeId)
+    {
+        $query = Task::query()
+            ->whereIn('project_id', $projectIds);
+
+        if ($selectedEmployeeId) {
+            $query->where('assigned_employee_id', $selectedEmployeeId);
+        }
+
+        return $query;
+    }
+
+    public function getProjectSummary($projectIds, ?int $selectedEmployeeId = null): array
     {
         $today = today();
 
@@ -66,23 +105,117 @@ class DashboardController extends Controller
                 ->whereIn('id', $projectIds)
                 ->where('status', 'active')
                 ->count(),
-            'completedProject' => Project::query()
-                ->whereIn('id', $projectIds)
-                ->where('status', 'completed')
-                ->count(),
             'overdueProject' => Project::query()
                 ->whereIn('id', $projectIds)
                 ->where('status', '!=', 'completed')
                 ->whereDate('due_date', '<', $today)
                 ->count(),
-            'totalTask' => Task::query()
-                ->whereIn('project_id', $projectIds)
+            'totalTask' => $this->taskMetricQuery($projectIds, $selectedEmployeeId)
                 ->count(),
-            'unfinishedTask' => Task::query()
-                ->whereIn('project_id', $projectIds)
+            'unfinishedTask' => $this->taskMetricQuery($projectIds, $selectedEmployeeId)
                 ->where('status', '!=', 'done')
                 ->count(),
+            'overdueTask' => $this->taskMetricQuery($projectIds, $selectedEmployeeId)
+                ->where('status', '!=', 'done')
+                ->whereDate('due_date', '<', $today)
+                ->count(),
         ];
+    }
+
+    private function getMetricRecords($projectIds, ?int $selectedEmployeeId = null): array
+    {
+        $today = today();
+
+        return [
+            'totalProject' => $this->projectMetricRecords(
+                Project::query()
+                    ->whereIn('id', $projectIds)
+                    ->orderBy('name')
+                    ->get()
+            ),
+            'activeProject' => $this->projectMetricRecords(
+                Project::query()
+                    ->whereIn('id', $projectIds)
+                    ->where('status', 'active')
+                    ->orderBy('name')
+                    ->get()
+            ),
+            'overdueProject' => $this->projectMetricRecords(
+                Project::query()
+                    ->whereIn('id', $projectIds)
+                    ->where('status', '!=', 'completed')
+                    ->whereDate('due_date', '<', $today)
+                    ->orderBy('due_date')
+                    ->get()
+            ),
+            'totalTask' => $this->taskMetricRecords(
+                $this->taskMetricQuery($projectIds, $selectedEmployeeId)
+                    ->with(['project', 'assignee'])
+                    ->orderBy('title')
+                    ->get()
+            ),
+            'unfinishedTask' => $this->taskMetricRecords(
+                $this->taskMetricQuery($projectIds, $selectedEmployeeId)
+                    ->with(['project', 'assignee'])
+                    ->where('status', '!=', 'done')
+                    ->orderBy('due_date')
+                    ->get()
+            ),
+            'overdueTask' => $this->taskMetricRecords(
+                $this->taskMetricQuery($projectIds, $selectedEmployeeId)
+                    ->with(['project', 'assignee'])
+                    ->where('status', '!=', 'done')
+                    ->whereDate('due_date', '<', $today)
+                    ->orderBy('due_date')
+                    ->get()
+            ),
+        ];
+    }
+
+    private function projectMetricRecords($projects)
+    {
+        return $projects->map(function (Project $project): array {
+            return [
+                'id' => $project->id,
+                'name' => $project->name,
+                'status' => $project->status,
+                'startDate' => $project->start_date?->toDateString(),
+                'dueDate' => $project->due_date?->toDateString(),
+                'url' => route('projects.show', $project),
+            ];
+        })->values();
+    }
+
+    private function taskMetricRecords($tasks)
+    {
+        return $tasks->map(function (Task $task): array {
+            return [
+                'id' => $task->id,
+                'title' => $task->title,
+                'status' => $task->status,
+                'dueDate' => $task->due_date?->toDateString(),
+                'projectName' => $task->project?->name ?? 'Unknown Project',
+                'assigneeName' => $task->assignee?->name ?? 'Unassigned',
+            ];
+        })->values();
+    }
+
+    private function getTeamMembers()
+    {
+        return Employee::query()
+            ->with(['role', 'division'])
+            ->whereHas('role', function ($roleQuery): void {
+                $roleQuery->where('slug', 'team-member');
+            })
+            ->orderBy('name')
+            ->get()
+            ->map(function (Employee $employee): array {
+                return [
+                    'id' => $employee->id,
+                    'name' => $employee->name,
+                    'divisionName' => $employee->division?->name,
+                ];
+            });
     }
 
     public function getRecentActivities($projectIds)
@@ -99,10 +232,7 @@ class DashboardController extends Controller
                     'projectName' => $task->project?->name ?? 'Unknown Project',
                     'status' => $task->status,
                     'updatedAt' => $task->updated_at,
-                    'url' => route('projects.show', [
-                        'project' => $task->project_id,
-                        'task' => $task->id,
-                    ]),
+                    'url' => route('projects.show', $task->project_id),
                 ];
             });
     }
@@ -128,10 +258,7 @@ class DashboardController extends Controller
                     'projectName' => $task->project?->name ?? 'Unknown Project',
                     'status' => $task->status,
                     'dueDate' => $task->due_date?->toDateString(),
-                    'url' => route('projects.show', [
-                        'project' => $task->project_id,
-                        'task' => $task->id,
-                    ]),
+                    'url' => route('projects.show', $task->project_id),
                 ];
             });
     }
@@ -166,10 +293,7 @@ class DashboardController extends Controller
                     'projectName' => $task->project?->name ?? 'Unknown Project',
                     'date' => $task->due_date?->toDateString(),
                     'status' => $task->status,
-                    'url' => route('projects.show', [
-                        'project' => $task->project_id,
-                        'task' => $task->id,
-                    ]),
+                    'url' => route('projects.show', $task->project_id),
                 ];
             });
 
@@ -207,10 +331,7 @@ class DashboardController extends Controller
                     'title' => $task->title,
                     'projectName' => $task->project?->name ?? 'Unknown Project',
                     'status' => $task->status,
-                    'url' => route('projects.show', [
-                        'project' => $task->project_id,
-                        'task' => $task->id,
-                    ]),
+                    'url' => route('projects.show', $task->project_id),
                 ];
             });
 

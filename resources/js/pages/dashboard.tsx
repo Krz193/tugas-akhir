@@ -1,11 +1,16 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import DashboardStatCard from '@/components/dashboard/dashboard-stat-card';
 import RecentActivityList from '@/components/dashboard/recent-activity-list';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
@@ -52,15 +57,57 @@ interface TimelineProject {
     url: string;
 }
 
+interface TeamMember {
+    id: number;
+    name: string;
+    divisionName: string | null;
+}
+
+interface ProjectMetricRecord {
+    id: number;
+    name: string;
+    status: string;
+    startDate: string | null;
+    dueDate: string | null;
+    url: string;
+}
+
+interface TaskMetricRecord {
+    id: number;
+    title: string;
+    status: string;
+    dueDate: string | null;
+    projectName: string;
+    assigneeName: string;
+}
+
+type MetricKey =
+    | 'totalProject'
+    | 'activeProject'
+    | 'overdueProject'
+    | 'totalTask'
+    | 'unfinishedTask'
+    | 'overdueTask';
+
 interface DashboardProps {
     projectSummary: {
         totalProject: number;
         activeProject: number;
-        completedProject: number;
         overdueProject: number;
         totalTask: number;
         unfinishedTask: number;
+        overdueTask: number;
     };
+    metricRecords: {
+        totalProject: ProjectMetricRecord[];
+        activeProject: ProjectMetricRecord[];
+        overdueProject: ProjectMetricRecord[];
+        totalTask: TaskMetricRecord[];
+        unfinishedTask: TaskMetricRecord[];
+        overdueTask: TaskMetricRecord[];
+    };
+    teamMembers: TeamMember[];
+    selectedEmployeeId: number | null;
     recentActivities: RecentActivity[];
     incomingDueTasks: IncomingDueTask[];
     calendarData: CalendarItem[];
@@ -221,50 +268,205 @@ function CompactCalendar({
     );
 }
 
-function DeadlineList({ deadlines }: { deadlines: CalendarItem[] }) {
+function DeadlineModal({
+    open,
+    selectedDate,
+    deadlines,
+    onOpenChange,
+}: {
+    open: boolean;
+    selectedDate: string;
+    deadlines: CalendarItem[];
+    onOpenChange: (open: boolean) => void;
+}) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Selected Date Deadlines</CardTitle>
-            </CardHeader>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="flex h-[32rem] max-h-[85vh] flex-col sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>
+                        Deadlines on {formatDate(selectedDate)}
+                    </DialogTitle>
+                </DialogHeader>
 
-            <CardContent>
-                {deadlines.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        No project or task deadlines on this date.
-                    </p>
-                ) : (
-                    <div className="space-y-3">
-                        {deadlines.map((item, index) => (
-                            <Link
-                                key={`${item.type}-${item.title}-${index}`}
-                                href={item.url}
-                                className="block rounded-md border p-3 hover:bg-muted"
-                            >
-                                <div className="flex items-center justify-between gap-3">
-                                    <p className="font-medium">{item.title}</p>
-                                    <Badge
-                                        variant={
-                                            item.type === 'project'
-                                                ? 'default'
-                                                : 'secondary'
-                                        }
+                <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+                    {deadlines.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                            No project or task deadlines on this date.
+                        </p>
+                    ) : (
+                        <div className="space-y-3">
+                            {deadlines.map((item, index) => {
+                                const content = (
+                                    <>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="font-medium">
+                                                {item.title}
+                                            </p>
+                                            <Badge
+                                                variant={
+                                                    item.type === 'project'
+                                                        ? 'default'
+                                                        : 'secondary'
+                                                }
+                                            >
+                                                {item.type}
+                                            </Badge>
+                                        </div>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {item.projectName
+                                                ? `${item.projectName} · `
+                                                : ''}
+                                            {item.status}
+                                        </p>
+                                    </>
+                                );
+
+                                if (item.type === 'project') {
+                                    return (
+                                        <Link
+                                            key={`${item.type}-${item.title}-${index}`}
+                                            href={item.url}
+                                            className="block rounded-md border p-3 hover:bg-muted"
+                                        >
+                                            {content}
+                                        </Link>
+                                    );
+                                }
+
+                                return (
+                                    <div
+                                        key={`${item.type}-${item.title}-${index}`}
+                                        className="rounded-md border p-3"
                                     >
-                                        {item.type}
-                                    </Badge>
-                                </div>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    {item.projectName
-                                        ? `${item.projectName} · `
-                                        : ''}
-                                    {item.status}
-                                </p>
-                            </Link>
-                        ))}
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+                                        {content}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function MetricCard({
+    title,
+    value,
+    description,
+    onClick,
+}: {
+    title: string;
+    value: number;
+    description: string;
+    onClick: () => void;
+}) {
+    return (
+        <button type="button" className="text-left" onClick={onClick}>
+            <Card className="h-full transition hover:border-primary/60 hover:bg-muted/40">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                        {title}
+                    </CardTitle>
+                </CardHeader>
+
+                <CardContent>
+                    <div className="text-3xl font-bold">{value}</div>
+
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        {description}
+                    </p>
+                </CardContent>
+            </Card>
+        </button>
+    );
+}
+
+function MetricModal({
+    open,
+    title,
+    metricKey,
+    metricRecords,
+    onOpenChange,
+}: {
+    open: boolean;
+    title: string;
+    metricKey: MetricKey | null;
+    metricRecords: DashboardProps['metricRecords'];
+    onOpenChange: (open: boolean) => void;
+}) {
+    const isProjectMetric =
+        metricKey === 'totalProject' ||
+        metricKey === 'activeProject' ||
+        metricKey === 'overdueProject';
+
+    const records = metricKey ? metricRecords[metricKey] : [];
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="flex h-[32rem] max-h-[85vh] flex-col sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                </DialogHeader>
+
+                <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+                    {records.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                            No records found for this metric.
+                        </p>
+                    ) : (
+                        <div className="space-y-3">
+                            {isProjectMetric
+                                ? (records as ProjectMetricRecord[]).map(
+                                      (project) => (
+                                          <Link
+                                              key={project.id}
+                                              href={project.url}
+                                              className="block rounded-md border p-3 hover:bg-muted"
+                                          >
+                                              <div className="flex items-center justify-between gap-3">
+                                                  <p className="font-medium">
+                                                      {project.name}
+                                                  </p>
+                                                  <Badge>{project.status}</Badge>
+                                              </div>
+                                              <p className="mt-1 text-sm text-muted-foreground">
+                                                  {formatDate(
+                                                      project.startDate,
+                                                  )}{' '}
+                                                  -{' '}
+                                                  {formatDate(project.dueDate)}
+                                              </p>
+                                          </Link>
+                                      ),
+                                  )
+                                : (records as TaskMetricRecord[]).map(
+                                      (task) => (
+                                          <div
+                                              key={task.id}
+                                              className="rounded-md border p-3"
+                                          >
+                                              <div className="flex items-center justify-between gap-3">
+                                                  <p className="font-medium">
+                                                      {task.title}
+                                                  </p>
+                                                  <Badge variant="secondary">
+                                                      {task.status}
+                                                  </Badge>
+                                              </div>
+                                              <p className="mt-1 text-sm text-muted-foreground">
+                                                  {task.projectName} ·{' '}
+                                                  {task.assigneeName} · Due{' '}
+                                                  {formatDate(task.dueDate)}
+                                              </p>
+                                          </div>
+                                      ),
+                                  )}
+                        </div>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -283,17 +485,16 @@ function IncomingDueTaskList({ tasks }: { tasks: IncomingDueTask[] }) {
                         </p>
                     ) : (
                         tasks.map((task) => (
-                            <Link
+                            <div
                                 key={task.id}
-                                href={task.url}
-                                className="block rounded-md border p-3 hover:bg-muted"
+                                className="rounded-md border p-3"
                             >
                                 <p className="font-medium">{task.taskTitle}</p>
                                 <p className="mt-1 text-sm text-muted-foreground">
                                     {task.projectName} · {task.status} · Due{' '}
                                     {formatDate(task.dueDate)}
                                 </p>
-                            </Link>
+                            </div>
                         ))
                     )}
                 </div>
@@ -466,6 +667,9 @@ function ProjectTimeline({ projects }: { projects: TimelineProject[] }) {
 
 export default function Dashboard({
     projectSummary,
+    metricRecords,
+    teamMembers,
+    selectedEmployeeId,
     recentActivities,
     incomingDueTasks,
     calendarData,
@@ -475,6 +679,9 @@ export default function Dashboard({
 }: DashboardProps) {
     const [selectedCalendarDate, setSelectedCalendarDate] =
         useState(selectedDate);
+    const [deadlineModalOpen, setDeadlineModalOpen] = useState(false);
+    const [selectedMetricKey, setSelectedMetricKey] =
+        useState<MetricKey | null>(null);
 
     const selectedDeadlines = useMemo(() => {
         if (selectedCalendarDate === selectedDate) {
@@ -486,6 +693,37 @@ export default function Dashboard({
 
         return calendarData.filter((item) => item.date === selectedCalendarDate);
     }, [calendarData, deadlinesByDate, selectedCalendarDate, selectedDate]);
+
+    const metricTitles: Record<MetricKey, string> = {
+        totalProject: 'Total Project',
+        activeProject: 'Active Project',
+        overdueProject: 'Overdue Project',
+        totalTask: 'Total Task',
+        unfinishedTask: 'Unfinished Task',
+        overdueTask: 'Overdue Task',
+    };
+
+    function openMetricModal(metricKey: MetricKey) {
+        setSelectedMetricKey(metricKey);
+    }
+
+    function changeTeamMemberFilter(employeeId: string) {
+        router.get(
+            '/dashboard',
+            {
+                employee_id: employeeId || undefined,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+            },
+        );
+    }
+
+    function selectCalendarDate(date: string) {
+        setSelectedCalendarDate(date);
+        setDeadlineModalOpen(true);
+    }
 
     return (
         <AppLayout>
@@ -505,52 +743,91 @@ export default function Dashboard({
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Project Summary</CardTitle>
+                            <CardTitle>Project Metrics</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                                <DashboardStatCard
+                                <MetricCard
                                     title="Total Project"
                                     value={projectSummary.totalProject}
                                     description="Projects visible to you"
+                                    onClick={() =>
+                                        openMetricModal('totalProject')
+                                    }
                                 />
-                                <DashboardStatCard
+                                <MetricCard
                                     title="Active Project"
                                     value={projectSummary.activeProject}
                                     description="Projects currently active"
+                                    onClick={() =>
+                                        openMetricModal('activeProject')
+                                    }
                                 />
-                                <DashboardStatCard
-                                    title="Completed Project"
-                                    value={projectSummary.completedProject}
-                                    description="Projects marked completed"
-                                />
-                                <DashboardStatCard
+                                <MetricCard
                                     title="Overdue Project"
                                     value={projectSummary.overdueProject}
                                     description="Uncompleted projects past due date"
+                                    onClick={() =>
+                                        openMetricModal('overdueProject')
+                                    }
                                 />
-                                <DashboardStatCard
+                            </div>
+
+                            <div className="mt-6 flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+                                <CardTitle>Task Performance Metrics</CardTitle>
+                                <select
+                                    className="h-9 rounded-md border bg-background px-3 text-sm"
+                                    value={selectedEmployeeId ?? ''}
+                                    onChange={(event) =>
+                                        changeTeamMemberFilter(
+                                            event.target.value,
+                                        )
+                                    }
+                                >
+                                    <option value="">All Team Members</option>
+                                    {teamMembers.map((member) => (
+                                        <option key={member.id} value={member.id}>
+                                            {member.name}
+                                            {member.divisionName
+                                                ? ` - ${member.divisionName}`
+                                                : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                <MetricCard
                                     title="Total Task"
                                     value={projectSummary.totalTask}
                                     description="Tasks in visible projects"
+                                    onClick={() => openMetricModal('totalTask')}
                                 />
-                                <DashboardStatCard
+                                <MetricCard
                                     title="Unfinished Task"
                                     value={projectSummary.unfinishedTask}
                                     description="Tasks not marked done"
+                                    onClick={() =>
+                                        openMetricModal('unfinishedTask')
+                                    }
+                                />
+                                <MetricCard
+                                    title="Overdue Task"
+                                    value={projectSummary.overdueTask}
+                                    description="Unfinished tasks past due date"
+                                    onClick={() =>
+                                        openMetricModal('overdueTask')
+                                    }
                                 />
                             </div>
                         </CardContent>
                     </Card>
 
-                    <div className="grid gap-4">
-                        <CompactCalendar
-                            calendarData={calendarData}
-                            selectedDate={selectedCalendarDate}
-                            onSelectDate={setSelectedCalendarDate}
-                        />
-                        <DeadlineList deadlines={selectedDeadlines} />
-                    </div>
+                    <CompactCalendar
+                        calendarData={calendarData}
+                        selectedDate={selectedCalendarDate}
+                        onSelectDate={selectCalendarDate}
+                    />
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-2">
@@ -561,6 +838,25 @@ export default function Dashboard({
 
                 <ProjectTimeline projects={timelineData} />
             </div>
+
+            <DeadlineModal
+                open={deadlineModalOpen}
+                selectedDate={selectedCalendarDate}
+                deadlines={selectedDeadlines}
+                onOpenChange={setDeadlineModalOpen}
+            />
+
+            <MetricModal
+                open={selectedMetricKey !== null}
+                title={selectedMetricKey ? metricTitles[selectedMetricKey] : ''}
+                metricKey={selectedMetricKey}
+                metricRecords={metricRecords}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSelectedMetricKey(null);
+                    }
+                }}
+            />
         </AppLayout>
     );
 }

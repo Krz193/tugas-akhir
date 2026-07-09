@@ -57,12 +57,6 @@ function statusLabel(status: TaskStatus) {
     return 'Todo';
 }
 
-function taskProgressValue(status: TaskStatus) {
-    if (status === 'done') return 100;
-    if (status === 'in_progress') return 50;
-    return 0;
-}
-
 function statusColorClass(status: TaskStatus) {
     if (status === 'done') return 'text-green-600';
     if (status === 'in_progress') return 'text-blue-600';
@@ -85,16 +79,17 @@ function TaskStatusIcon({ status }: { status: TaskStatus }) {
 
 function SectionedTaskProgress({ status }: { status: TaskStatus }) {
     const sections: TaskStatus[] = ['todo', 'in_progress', 'done'];
+    const activeSectionIndex = sections.indexOf(status);
 
     return (
-        <div className="grid grid-cols-3 gap-1">
-            {sections.map((section) => (
+        <div className="grid grid-cols-3 gap-0.5">
+            {sections.map((section, index) => (
                 <div
                     key={section}
-                    className={`h-1.5 rounded-full ${
-                        section === status
+                    className={`h-1 rounded-full ${
+                        index <= activeSectionIndex
                             ? progressColorClass(status)
-                            : 'bg-muted'
+                            : 'bg-muted/70'
                     }`}
                 />
             ))}
@@ -103,15 +98,11 @@ function SectionedTaskProgress({ status }: { status: TaskStatus }) {
 }
 
 function MemberTotalProgress({ tasks }: { tasks: Task[] }) {
+    const doneTasks = tasks.filter((task) => task.status === 'done').length;
     const totalProgress =
         tasks.length === 0
             ? 0
-            : Math.round(
-                  tasks.reduce(
-                      (total, task) => total + taskProgressValue(task.status),
-                      0,
-                  ) / tasks.length,
-              );
+            : Math.round((doneTasks / tasks.length) * 100);
 
     return (
         <div className="space-y-1.5">
@@ -335,7 +326,7 @@ export default function ProjectShow({
                         </span>
                     </h2>
 
-                    <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                         {project.members.map((member) => {
                             const employee = member.employee;
 
@@ -352,12 +343,12 @@ export default function ProjectShow({
                             return (
                                 <div
                                     key={`${member.project_id}-${member.employee_id}`}
-                                    className="space-y-4 rounded-lg border p-4"
+                                    className="space-y-3 rounded-lg border p-3"
                                 >
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="flex min-w-0 items-center gap-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex min-w-0 items-center gap-2">
                                             {/* Inisial avatar */}
-                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
                                                 {employee.name
                                                     .split(' ')
                                                     .map((n) => n[0])
@@ -366,10 +357,10 @@ export default function ProjectShow({
                                                     .toUpperCase()}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="truncate text-sm font-medium">
+                                                <p className="truncate text-sm font-medium leading-tight">
                                                     {employee.name}
                                                 </p>
-                                                <p className="text-xs text-muted-foreground">
+                                                <p className="truncate text-xs text-muted-foreground">
                                                     {employee.division?.name ??
                                                         'No Division'}
                                                 </p>
@@ -377,11 +368,11 @@ export default function ProjectShow({
                                         </div>
 
                                         <div className="text-right">
-                                            <p className="text-lg font-semibold">
+                                            <p className="text-base font-semibold leading-tight">
                                                 {assignedTasks.length}
                                             </p>
                                             <p className="text-xs text-muted-foreground">
-                                                assigned tasks
+                                                tasks
                                             </p>
                                         </div>
                                     </div>
@@ -390,18 +381,18 @@ export default function ProjectShow({
                                         tasks={assignedTasks}
                                     />
 
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {assignedTasks.length === 0 ? (
-                                            <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+                                            <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
                                                 No assigned tasks.
                                             </p>
                                         ) : (
                                             assignedTasks.map((task) => (
                                                 <div
                                                     key={task.id}
-                                                    className="space-y-2 border-t pt-3 first:border-t-0 first:pt-0"
+                                                    className="space-y-1.5 border-t pt-2 first:border-t-0 first:pt-0"
                                                 >
-                                                    <div className="flex items-start gap-2">
+                                                    <div className="flex items-start gap-1.5">
                                                         <TaskStatusIcon
                                                             status={task.status}
                                                         />
