@@ -44,7 +44,6 @@ class RoleAccessFinalTest extends TestCase
         $teamMember = $this->createUserWithRole('team-member');
         $project = Project::query()->create(['name' => 'Access Project', 'status' => 'planning']);
 
-        $this->addMember($project, $businessDeveloper->employee);
         $this->addMember($project, $teamMember->employee);
 
         $this->actingAs($pm)->get(route('projects.show', $project))->assertOk();
@@ -58,7 +57,6 @@ class RoleAccessFinalTest extends TestCase
         $businessDeveloper = $this->createUserWithRole('business-developer');
         $teamMember = $this->createUserWithRole('team-member');
         $project = Project::query()->create(['name' => 'Task Access', 'status' => 'planning']);
-        $this->addMember($project, $businessDeveloper->employee);
         $this->addMember($project, $teamMember->employee);
 
         $task = Task::query()->create([
@@ -80,7 +78,6 @@ class RoleAccessFinalTest extends TestCase
         $teamMember = $this->createUserWithRole('team-member');
         $otherTeamMember = $this->createUserWithRole('team-member');
         $project = Project::query()->create(['name' => 'Status Access', 'status' => 'planning']);
-        $this->addMember($project, $businessDeveloper->employee);
         $this->addMember($project, $teamMember->employee);
         $this->addMember($project, $otherTeamMember->employee);
 

@@ -53,6 +53,61 @@ class TaskManagementFinalTest extends TestCase
             ->assertSessionHasErrors('assigned_employee_id');
     }
 
+    public function test_pm_can_update_task_details_and_status(): void
+    {
+        $pm = $this->createUserWithRole('project-manager');
+        $assignee = $this->createUserWithRole('team-member')->employee;
+        $project = $this->createProjectWithMember($assignee);
+
+        $task = Task::query()->create([
+            'project_id' => $project->id,
+            'assigned_employee_id' => $assignee->id,
+            'title' => 'Old task',
+            'status' => 'todo',
+        ]);
+
+        $this->actingAs($pm)
+            ->patchJson(route('tasks.update', $task), [
+                'title' => 'Updated task',
+                'description' => 'Updated description',
+                'assigned_employee_id' => $assignee->id,
+                'status' => 'in_progress',
+                'start_date' => '2026-05-02',
+                'due_date' => '2026-05-12',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Updated task')
+            ->assertJsonPath('data.status', 'in_progress');
+
+        $this->assertDatabaseHas('tasks', [
+            'id' => $task->id,
+            'title' => 'Updated task',
+            'status' => 'in_progress',
+        ]);
+    }
+
+    public function test_business_developer_cannot_update_task(): void
+    {
+        $businessDeveloper = $this->createUserWithRole('business-developer');
+        $assignee = $this->createUserWithRole('team-member')->employee;
+        $project = $this->createProjectWithMember($assignee);
+
+        $task = Task::query()->create([
+            'project_id' => $project->id,
+            'assigned_employee_id' => $assignee->id,
+            'title' => 'Protected task',
+            'status' => 'todo',
+        ]);
+
+        $this->actingAs($businessDeveloper)
+            ->patchJson(route('tasks.update', $task), [
+                'title' => 'Changed by BD',
+            ])
+            ->assertForbidden();
+
+        $this->assertSame('Protected task', $task->refresh()->title);
+    }
+
     public function test_assignee_can_update_task_status(): void
     {
         $assignee = $this->createUserWithRole('team-member');

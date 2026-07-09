@@ -7,8 +7,8 @@ use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\Role;
 use App\Models\User;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class ProjectManagementFinalTest extends TestCase
@@ -87,7 +87,7 @@ class ProjectManagementFinalTest extends TestCase
         ]);
     }
 
-    public function test_pm_has_global_project_access_and_bd_needs_membership(): void
+    public function test_pm_and_bd_have_global_project_access_without_membership(): void
     {
         $pm = $this->createUserWithRole('project-manager');
         $businessDeveloper = $this->createUserWithRole('business-developer');
@@ -100,14 +100,7 @@ class ProjectManagementFinalTest extends TestCase
 
         $this->actingAs($businessDeveloper)
             ->get(route('projects.show', $project))
-            ->assertForbidden();
-
-        ProjectMember::query()->create([
-            'project_id' => $project->id,
-            'employee_id' => $businessDeveloper->employee->id,
-            'date_joined' => now(),
-            'is_leader' => false,
-        ]);
+            ->assertOk();
 
         ProjectMember::query()->create([
             'project_id' => $project->id,
@@ -125,6 +118,29 @@ class ProjectManagementFinalTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_project_member_selection_rejects_pm_and_bd(): void
+    {
+        $pm = $this->createUserWithRole('project-manager');
+        $businessDeveloper = $this->createUserWithRole('business-developer');
+        $project = Project::query()->create(['name' => 'Members', 'status' => 'planning']);
+
+        $this->actingAs($pm)
+            ->withHeader('Accept', 'application/json')
+            ->post(route('projects.members.store', $project), [
+                'employee_id' => $pm->employee->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('employee_id');
+
+        $this->actingAs($pm)
+            ->withHeader('Accept', 'application/json')
+            ->post(route('projects.members.store', $project), [
+                'employee_id' => $businessDeveloper->employee->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('employee_id');
+    }
+
     public function test_non_pm_cannot_create_project(): void
     {
         $member = $this->createUserWithRole('team-member');
@@ -138,13 +154,6 @@ class ProjectManagementFinalTest extends TestCase
     {
         $businessDeveloper = $this->createUserWithRole('business-developer');
         $project = Project::query()->create(['name' => 'BD Project', 'status' => 'planning']);
-
-        ProjectMember::query()->create([
-            'project_id' => $project->id,
-            'employee_id' => $businessDeveloper->employee->id,
-            'date_joined' => now(),
-            'is_leader' => false,
-        ]);
 
         $this->actingAs($businessDeveloper)
             ->patch(route('projects.update', $project), ['name' => 'Changed'])

@@ -19,12 +19,12 @@ class MessageFlowFinalTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_business_developer_project_member_can_create_project_message(): void
+    public function test_business_developer_can_create_project_message_without_membership(): void
     {
-        $member = $this->createUserWithRole('business-developer');
-        $project = $this->createProjectWithMember($member->employee);
+        $businessDeveloper = $this->createUserWithRole('business-developer');
+        $project = Project::query()->create(['name' => 'Message Project', 'status' => 'planning']);
 
-        $this->actingAs($member)
+        $this->actingAs($businessDeveloper)
             ->post(route('projects.messages.store', $project), [
                 'message_body' => 'Project message',
             ])
@@ -32,7 +32,7 @@ class MessageFlowFinalTest extends TestCase
 
         $this->assertDatabaseHas('message_project', [
             'project_id' => $project->id,
-            'sender_id' => $member->employee->id,
+            'sender_id' => $businessDeveloper->employee->id,
             'message_body' => 'Project message',
         ]);
     }
@@ -40,7 +40,7 @@ class MessageFlowFinalTest extends TestCase
     public function test_project_messages_are_flat_project_message_records(): void
     {
         $member = $this->createUserWithRole('business-developer');
-        $project = $this->createProjectWithMember($member->employee);
+        $project = Project::query()->create(['name' => 'Message Project', 'status' => 'planning']);
 
         ProjectMessage::query()->create([
             'project_id' => $project->id,
@@ -105,7 +105,7 @@ class MessageFlowFinalTest extends TestCase
 
         $projectManager = $this->createUserWithRole('project-manager');
         $businessDeveloper = $this->createUserWithRole('business-developer');
-        $project = $this->createProjectWithMember($businessDeveloper->employee);
+        $project = Project::query()->create(['name' => 'Message Project', 'status' => 'planning']);
 
         $this->actingAs($projectManager)
             ->post('/broadcasting/auth', [
