@@ -24,11 +24,12 @@ export default function AuthCardLayout({
             <div className="flex w-full max-w-md flex-col gap-6">
                 <Link
                     href={home()}
-                    className="flex items-center gap-2 self-center font-medium"
+                    className="mb-2 flex items-center justify-center gap-2.5 font-bold text-xl tracking-tight text-foreground"
                 >
-                    <div className="flex h-9 w-9 items-center justify-center">
-                        <AppLogoIcon className="size-9 fill-current text-black dark:text-white" />
+                    <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                        <AppLogoIcon className="size-5" />
                     </div>
+                    Djitugo Project Management
                 </Link>
 
                 <div className="flex flex-col gap-6">

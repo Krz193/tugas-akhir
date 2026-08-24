@@ -21,9 +21,7 @@ Route::get('/', function (Request $request) {
         return redirect()->route('dashboard');
     }
 
-    return Inertia::render('welcome', [
-        'canRegister' => Features::enabled(Features::registration()),
-    ]);
+    return redirect()->route('login');
 })->name('home');
 
 Route::get('dashboard', [DashboardController::class, 'index'])

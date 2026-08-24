@@ -60,13 +60,13 @@ function statusLabel(status: TaskStatus) {
 function statusColorClass(status: TaskStatus) {
     if (status === 'done') return 'text-green-600';
     if (status === 'in_progress') return 'text-blue-600';
-    return 'text-gray-500';
+    return 'text-rose-500';
 }
 
 function progressColorClass(status: TaskStatus) {
     if (status === 'done') return 'bg-green-500';
     if (status === 'in_progress') return 'bg-blue-500';
-    return 'bg-gray-400';
+    return 'bg-rose-400';
 }
 
 function TaskStatusIcon({ status }: { status: TaskStatus }) {

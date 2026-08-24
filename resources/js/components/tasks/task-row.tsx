@@ -17,14 +17,14 @@ function formatDate(date: string | null) {
 
 function statusSelectClass(status: TaskStatus) {
     if (status === 'done') {
-        return 'border-green-300 bg-green-50 text-green-800';
+        return 'border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/60 dark:text-green-300';
     }
 
     if (status === 'in_progress') {
-        return 'border-blue-300 bg-blue-50 text-blue-800';
+        return 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300';
     }
 
-    return 'border-gray-300 bg-gray-50 text-gray-700';
+    return 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-300';
 }
 
 type TaskRowProps = {
