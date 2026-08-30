@@ -17,16 +17,31 @@ class ProjectPolicy
         return $user->employee?->role?->slug === 'business-developer';
     }
 
-    /** User login boleh membuka daftar project. */
-    public function viewAny(User $user): bool
+    private function isTeamMember(User $user): bool
     {
-        return $this->isPm($user) || $this->isBusinessDeveloper($user);
+        return $user->employee?->role?->slug === 'team-member';
     }
 
-    /** PM dan BD melihat semua project. */
+    private function isProjectMember(User $user, Project $project): bool
+    {
+        $employeeId = $user->employee?->id;
+
+        return $employeeId !== null
+            && $project->members()->where('employee_id', $employeeId)->exists();
+    }
+
+    /** User login boleh membuka daftar project (PM, BD, dan Team Member). */
+    public function viewAny(User $user): bool
+    {
+        return $this->isPm($user) || $this->isBusinessDeveloper($user) || $this->isTeamMember($user);
+    }
+
+    /** PM dan BD melihat semua project. Member hanya melihat project yang diikutinya. */
     public function view(User $user, Project $project): bool
     {
-        return $this->isPm($user) || $this->isBusinessDeveloper($user);
+        return $this->isPm($user)
+            || $this->isBusinessDeveloper($user)
+            || ($this->isTeamMember($user) && $this->isProjectMember($user, $project));
     }
 
     /** Hanya PM yang boleh membuat project. */

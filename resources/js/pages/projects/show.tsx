@@ -127,7 +127,7 @@ export default function ProjectShow({
     projectMessages,
     availableEmployees,
 }: Props) {
-    const { isProjectManager } = useAuthUser();
+    const { user, isProjectManager, isTeamMember } = useAuthUser();
     const [taskDialogOpen, setTaskDialogOpen] = useState(false);
     const [taskEditOpen, setTaskEditOpen] = useState(false);
     const [taskBeingEdited, setTaskBeingEdited] = useState<Task | null>(null);
@@ -154,6 +154,14 @@ export default function ProjectShow({
     } = useTaskThread();
 
     const isPm = isProjectManager();
+    const employeeId = user.employee?.id;
+
+    function canAccessTaskThread(task: Task) {
+        return (
+            isPm ||
+            (isTeamMember() && task.assigned_employee_id === employeeId)
+        );
+    }
 
     function openTaskEdit(task: Task) {
         setTaskBeingEdited(task);
@@ -172,19 +180,16 @@ export default function ProjectShow({
     useEffect(() => {
         if (!taskId) return;
 
-        if (!isPm) {
-            window.history.replaceState({}, '', `/projects/${project.id}`);
-            return;
-        }
-
         const task = project.tasks.find((task) => task.id === Number(taskId));
 
-        if (task) {
+        if (task && canAccessTaskThread(task)) {
             openTaskThread(task);
+        } else {
+            window.history.replaceState({}, '', `/projects/${project.id}`);
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [taskId, isPm, project.id]);
+    }, [taskId, isPm, project.id, employeeId]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -253,6 +258,7 @@ export default function ProjectShow({
                         postUrl={`/projects/${project.id}/messages`}
                         realtimeChannel={`projects.${project.id}`}
                         realtimeEvent=".project.message.sent"
+                        canSend={!isTeamMember()}
                     />
                 </div>
 
@@ -303,9 +309,9 @@ export default function ProjectShow({
                                         task={task}
                                         canDelete={isPm}
                                         canEdit={isPm}
-                                        canOpenDetail={isPm}
+                                        canOpenDetail={canAccessTaskThread(task)}
                                         onClick={() => {
-                                            if (isPm) {
+                                            if (canAccessTaskThread(task)) {
                                                 openTaskThread(task);
                                             }
                                         }}

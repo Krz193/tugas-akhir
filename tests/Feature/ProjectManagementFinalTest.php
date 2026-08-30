@@ -92,6 +92,7 @@ class ProjectManagementFinalTest extends TestCase
         $pm = $this->createUserWithRole('project-manager');
         $businessDeveloper = $this->createUserWithRole('business-developer');
         $member = $this->createUserWithRole('team-member');
+        $nonMember = $this->createUserWithRole('team-member');
         $project = Project::query()->create(['name' => 'Private', 'status' => 'planning']);
 
         $this->actingAs($pm)
@@ -101,6 +102,10 @@ class ProjectManagementFinalTest extends TestCase
         $this->actingAs($businessDeveloper)
             ->get(route('projects.show', $project))
             ->assertOk();
+
+        $this->actingAs($nonMember)
+            ->get(route('projects.show', $project))
+            ->assertForbidden();
 
         ProjectMember::query()->create([
             'project_id' => $project->id,
@@ -115,7 +120,7 @@ class ProjectManagementFinalTest extends TestCase
 
         $this->actingAs($member)
             ->get(route('projects.show', $project))
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_project_member_selection_rejects_pm_and_bd(): void

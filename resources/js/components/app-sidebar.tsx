@@ -50,11 +50,18 @@ export function AppSidebar() {
     }
 
     if (isTeamMember()) {
-        roleNavItems.push({
-            title: 'My Tasks',
-            href: '/my-tasks',
-            icon: CheckSquare,
-        });
+        roleNavItems.push(
+            {
+                title: 'Projects',
+                href: '/projects',
+                icon: FolderKanban,
+            },
+            {
+                title: 'My Tasks',
+                href: '/my-tasks',
+                icon: CheckSquare,
+            },
+        );
     }
 
     return (

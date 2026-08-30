@@ -15,6 +15,7 @@ type ThreadSectionProps = {
     onMessageSent?: () => void;
     realtimeChannel?: string;
     realtimeEvent?: string;
+    canSend?: boolean;
 };
 
 export function ThreadSection({
@@ -23,6 +24,7 @@ export function ThreadSection({
     onMessageSent,
     realtimeChannel,
     realtimeEvent,
+    canSend = true,
 }: ThreadSectionProps) {
     const { user } = useAuthUser();
     const currentEmployeeId = user.employee?.id ?? null;
@@ -99,42 +101,44 @@ export function ThreadSection({
                 </div>
             )}
 
-            <form
-                onSubmit={(e) => {
-                    e.preventDefault();
+            {canSend ? (
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
 
-                    post(postUrl, {
-                        preserveScroll: true,
-                        onSuccess: () => {
-                            reset();
-                            onMessageSent?.();
-                        },
-                    });
-                }}
-                className="space-y-3"
-            >
-                <textarea
-                    value={data.message_body}
-                    onChange={(e) => setData('message_body', e.target.value)}
-                    placeholder="Write a message..."
-                    className="flex min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-                {errors.message_body && (
-                    <p className="text-sm text-destructive">
-                        {errors.message_body}
-                    </p>
-                )}
+                        post(postUrl, {
+                            preserveScroll: true,
+                            onSuccess: () => {
+                                reset();
+                                onMessageSent?.();
+                            },
+                        });
+                    }}
+                    className="space-y-3"
+                >
+                    <textarea
+                        value={data.message_body}
+                        onChange={(e) => setData('message_body', e.target.value)}
+                        placeholder="Write a message..."
+                        className="flex min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    />
+                    {errors.message_body && (
+                        <p className="text-sm text-destructive">
+                            {errors.message_body}
+                        </p>
+                    )}
 
-                <div className="flex justify-end">
-                    <button
-                        type="submit"
-                        disabled={processing || !data.message_body.trim()}
-                        className="rounded-md border px-4 py-2 text-sm"
-                    >
-                        Send Message
-                    </button>
-                </div>
-            </form>
+                    <div className="flex justify-end">
+                        <button
+                            type="submit"
+                            disabled={processing || !data.message_body.trim()}
+                            className="rounded-md border px-4 py-2 text-sm"
+                        >
+                            Send Message
+                        </button>
+                    </div>
+                </form>
+            ) : null}
         </div>
     );
 }

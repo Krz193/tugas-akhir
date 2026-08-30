@@ -42,13 +42,26 @@ class RoleAccessFinalTest extends TestCase
         $pm = $this->createUserWithRole('project-manager');
         $businessDeveloper = $this->createUserWithRole('business-developer');
         $teamMember = $this->createUserWithRole('team-member');
+        $otherTeamMember = $this->createUserWithRole('team-member');
         $project = Project::query()->create(['name' => 'Access Project', 'status' => 'planning']);
 
         $this->addMember($project, $teamMember->employee);
 
         $this->actingAs($pm)->get(route('projects.show', $project))->assertOk();
         $this->actingAs($businessDeveloper)->get(route('projects.show', $project))->assertOk();
-        $this->actingAs($teamMember)->get(route('projects.show', $project))->assertForbidden();
+        $this->actingAs($teamMember)->get(route('projects.show', $project))->assertOk();
+        $this->actingAs($otherTeamMember)->get(route('projects.show', $project))->assertForbidden();
+    }
+
+    public function test_project_list_access_allows_team_member(): void
+    {
+        $pm = $this->createUserWithRole('project-manager');
+        $businessDeveloper = $this->createUserWithRole('business-developer');
+        $teamMember = $this->createUserWithRole('team-member');
+
+        $this->actingAs($pm)->get(route('projects.index'))->assertOk();
+        $this->actingAs($businessDeveloper)->get(route('projects.index'))->assertOk();
+        $this->actingAs($teamMember)->get(route('projects.index'))->assertOk();
     }
 
     public function test_task_detail_access_follows_final_roles(): void

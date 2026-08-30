@@ -83,11 +83,18 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
     }
 
     if (roleSlug === 'team-member') {
-        navigationItems.push({
-            title: 'My Tasks',
-            href: '/my-tasks',
-            icon: CheckSquare,
-        });
+        navigationItems.push(
+            {
+                title: 'Projects',
+                href: '/projects',
+                icon: FolderKanban,
+            },
+            {
+                title: 'My Tasks',
+                href: '/my-tasks',
+                icon: CheckSquare,
+            },
+        );
     }
 
     return (

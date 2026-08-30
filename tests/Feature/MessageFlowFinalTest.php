@@ -37,6 +37,19 @@ class MessageFlowFinalTest extends TestCase
         ]);
     }
 
+    public function test_team_member_cannot_create_project_message(): void
+    {
+        $member = $this->createUserWithRole('team-member');
+        $project = Project::query()->create(['name' => 'Message Project', 'status' => 'planning']);
+        $this->addMember($project, $member->employee);
+
+        $this->actingAs($member)
+            ->post(route('projects.messages.store', $project), [
+                'message_body' => 'Member project message',
+            ])
+            ->assertForbidden();
+    }
+
     public function test_project_messages_are_flat_project_message_records(): void
     {
         $member = $this->createUserWithRole('business-developer');
