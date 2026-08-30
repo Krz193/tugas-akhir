@@ -1,5 +1,4 @@
 import { Link } from '@inertiajs/react';
-import AppLogoIcon from '@/components/app-logo-icon';
 import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
 
@@ -16,7 +15,6 @@ export default function AuthSplitLayout({
                     href={home()}
                     className="relative z-20 flex items-center gap-2 text-lg font-bold"
                 >
-                    <AppLogoIcon className="size-6 text-white" />
                     Djitugo Project Management
                 </Link>
             </div>
@@ -24,9 +22,8 @@ export default function AuthSplitLayout({
                 <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
                     <Link
                         href={home()}
-                        className="mb-2 relative z-20 flex items-center justify-center gap-2 text-lg font-bold text-foreground lg:hidden"
+                        className="mb-2 relative z-20 flex items-center justify-center gap-2 text-lg font-bold text-foreground lg:hidden text-center"
                     >
-                        <AppLogoIcon className="size-6 text-primary" />
                         Djitugo Project Management
                     </Link>
                     <div className="flex flex-col items-start gap-2 text-left sm:items-center sm:text-center">
