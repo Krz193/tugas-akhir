@@ -12,7 +12,6 @@ class Division extends Model
 
     protected $fillable = [
         'name',
-        'code',
     ];
 
     public function employees(): HasMany

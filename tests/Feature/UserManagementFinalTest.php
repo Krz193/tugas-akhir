@@ -38,8 +38,7 @@ class UserManagementFinalTest extends TestCase
             ['name' => 'Team Member']
         );
         $division = Division::query()->create([
-            'name' => 'Engineering',
-            'code' => 'ENG',
+            'name' => 'Web Development',
         ]);
 
         $this->actingAs($pm)

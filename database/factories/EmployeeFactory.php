@@ -61,13 +61,13 @@ class EmployeeFactory extends Factory
     }
 
     /**
-     * Assign a division by code (e.g. 'ENG', 'MKT', 'DES').
+     * Assign a division by name (e.g. 'Web Development', 'Graphic Design', 'Ads Specialist').
      * Divisions must be seeded before this state is called.
      */
-    public function inDivision(string $code): static
+    public function inDivision(string $name): static
     {
         return $this->state(fn () => [
-            'division_id' => Division::where('code', $code)->value('id'),
+            'division_id' => Division::where('name', $name)->value('id'),
         ]);
     }
 }

@@ -14,14 +14,17 @@ class DivisionSeeder extends Seeder
     public function run(): void
     {
         $divisions = [
-            ['name' => 'Engineering', 'code' => 'ENG'],
-            ['name' => 'Marketing',   'code' => 'MKT'],
-            ['name' => 'Design',      'code' => 'DES'],
+            ['name' => 'Project Management'],
+            ['name' => 'Business Development'],
+            ['name' => 'Web Development'],
+            ['name' => 'Graphic Design'],
+            ['name' => 'Ads Specialist'],
+            ['name' => 'Content & Copywriting'],
+            ['name' => 'Social Media Marketing'],
         ];
 
         foreach ($divisions as $division) {
             Division::firstOrCreate(
-                ['code' => $division['code']],
                 ['name' => $division['name']],
             );
         }
