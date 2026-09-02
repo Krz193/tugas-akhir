@@ -167,6 +167,123 @@ class ProjectManagementFinalTest extends TestCase
         $this->assertSame('BD Project', $project->refresh()->name);
     }
 
+    public function test_pm_can_update_project_status(): void
+    {
+        $pm = $this->createUserWithRole('project-manager');
+        $project = Project::query()->create(['name' => 'Project Alpha', 'status' => 'planning']);
+
+        $this->actingAs($pm)
+            ->patch(route('projects.update', $project), [
+                'status' => 'active',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('active', $project->refresh()->status);
+    }
+
+    public function test_pm_can_create_and_update_project_price(): void
+    {
+        $pm = $this->createUserWithRole('project-manager');
+
+        $this->actingAs($pm)
+            ->post(route('projects.store'), [
+                'name' => 'Valued Project',
+                'price' => 75000000,
+            ])
+            ->assertRedirect();
+
+        $project = Project::query()->where('name', 'Valued Project')->first();
+        $this->assertNotNull($project);
+        $this->assertEquals(75000000, (float) $project->price);
+
+        $this->actingAs($pm)
+            ->patch(route('projects.update', $project), [
+                'price' => 90000000,
+            ])
+            ->assertRedirect();
+
+        $this->assertEquals(90000000, (float) $project->refresh()->price);
+    }
+
+    public function test_project_detail_loads_task_status_summary(): void
+    {
+        $pm = $this->createUserWithRole('project-manager');
+        $project = Project::query()->create(['name' => 'Summary Test', 'status' => 'active']);
+
+        $project->tasks()->create(['title' => 'Task 1', 'status' => 'todo']);
+        $project->tasks()->create(['title' => 'Task 2', 'status' => 'in_progress']);
+        $project->tasks()->create(['title' => 'Task 3', 'status' => 'done']);
+
+        $this->actingAs($pm)
+            ->get(route('projects.show', $project))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('projects/show')
+                ->where('project.tasks_count', 3)
+                ->where('project.todo_tasks_count', 1)
+                ->where('project.in_progress_tasks_count', 1)
+                ->where('project.done_tasks_count', 1)
+            );
+    }
+
+    public function test_pm_can_delete_project(): void
+    {
+        $pm = $this->createUserWithRole('project-manager');
+        $member = $this->createUserWithRole('team-member')->employee;
+        $project = Project::query()->create(['name' => 'Delete Me', 'status' => 'planning']);
+
+        ProjectMember::query()->create([
+            'project_id' => $project->id,
+            'employee_id' => $member->id,
+            'date_joined' => now(),
+            'is_leader' => false,
+        ]);
+
+        $task = $project->tasks()->create([
+            'title' => 'Project Task',
+            'status' => 'todo',
+            'assigned_employee_id' => $member->id,
+        ]);
+
+        $thread = $task->thread()->create();
+        $thread->messages()->create([
+            'sender_id' => $member->id,
+            'message_body' => 'Task message body',
+        ]);
+
+        $project->projectMessages()->create([
+            'sender_id' => $pm->employee->id,
+            'message_body' => 'Project discussion message',
+        ]);
+
+        $response = $this->actingAs($pm)->delete(route('projects.destroy', $project));
+
+        $response->assertRedirect(route('projects.index'));
+
+        $this->assertDatabaseMissing('projects', ['id' => $project->id]);
+        $this->assertDatabaseMissing('project_members', ['project_id' => $project->id]);
+        $this->assertDatabaseMissing('tasks', ['id' => $task->id]);
+        $this->assertDatabaseMissing('threads', ['id' => $thread->id]);
+        $this->assertDatabaseMissing('message_project', ['project_id' => $project->id]);
+    }
+
+    public function test_non_pm_cannot_delete_project(): void
+    {
+        $member = $this->createUserWithRole('team-member');
+        $businessDeveloper = $this->createUserWithRole('business-developer');
+        $project = Project::query()->create(['name' => 'Protected Project', 'status' => 'planning']);
+
+        $this->actingAs($member)
+            ->delete(route('projects.destroy', $project))
+            ->assertForbidden();
+
+        $this->actingAs($businessDeveloper)
+            ->delete(route('projects.destroy', $project))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('projects', ['id' => $project->id]);
+    }
+
     private function createUserWithRole(string $roleSlug): User
     {
         $role = Role::query()->firstOrCreate(

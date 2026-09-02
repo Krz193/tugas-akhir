@@ -23,7 +23,7 @@ import {
 import { useAuthUser } from '@/hooks/use-auth-user';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, Project } from '@/types';
-import type { AvailableEmployee } from '@/types/project';
+import type { AvailableEmployee, ProjectFormData } from '@/types/project';
 
 // Data dari ProjectController.
 type Props = {
@@ -61,9 +61,21 @@ function formatDate(dateStr: string | null) {
     });
 }
 
+function formatCurrency(amount: number | string | null | undefined) {
+    if (amount === null || amount === undefined || amount === '') return null;
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(num)) return null;
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+    }).format(num);
+}
+
 // Kartu untuk satu project.
 function ProjectCard({ project }: { project: Project }) {
     const dueDate = formatDate(project.due_date);
+    const formattedPrice = formatCurrency(project.price);
 
     return (
         <Card className="flex flex-col justify-between">
@@ -89,16 +101,45 @@ function ProjectCard({ project }: { project: Project }) {
                 )}
             </CardHeader>
 
-            <CardContent>
-                <div className="flex gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                        <Users className="h-4 w-4" />
-                        {project.members_count ?? 0} members
-                    </span>
-                    <span className="flex items-center gap-1">
-                        <span className="h-4 w-4 rounded-full border-2 border-current" />
-                        {project.tasks_count ?? 0} tasks
-                    </span>
+            <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+                    <div className="flex gap-4">
+                        <span className="flex items-center gap-1">
+                            <Users className="h-4 w-4" />
+                            {project.members_count ?? 0} members
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <span className="h-4 w-4 rounded-full border-2 border-current" />
+                            {project.tasks_count ?? 0} tasks
+                        </span>
+                    </div>
+                    {formattedPrice && (
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
+                            {formattedPrice}
+                        </span>
+                    )}
+                </div>
+
+                <div>
+                    <div className="mb-1 flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Progress</span>
+                        <span className="font-medium">
+                            {project.progress_percentage !== null && project.progress_percentage !== undefined
+                                ? `${project.progress_percentage}%`
+                                : 'N/A'}
+                        </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                        <div
+                            className="h-full bg-primary transition-all duration-500 ease-in-out"
+                            style={{
+                                width:
+                                    project.progress_percentage !== null && project.progress_percentage !== undefined
+                                        ? `${project.progress_percentage}%`
+                                        : '0%',
+                            }}
+                        />
+                    </div>
                 </div>
             </CardContent>
 
@@ -121,13 +162,16 @@ function CreateProjectDialog({
     onOpenChange: (open: boolean) => void;
     availableEmployees: AvailableEmployee[];
 }) {
-    const { data, setData, post, processing, errors, reset } = useForm({
-        name: '',
-        description: '',
-        start_date: '',
-        due_date: '',
-        member_ids: [] as number[],
-    });
+    const { data, setData, post, processing, errors, reset } =
+        useForm<ProjectFormData>({
+            name: '',
+            description: '',
+            price: '',
+            status: 'planning',
+            start_date: '',
+            due_date: '',
+            member_ids: [],
+        });
 
     function handleSubmit(e: FormEvent) {
         e.preventDefault();

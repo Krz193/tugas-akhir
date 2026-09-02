@@ -22,7 +22,8 @@ class UpdateProjectRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
-            'status' => ['sometimes', 'required', 'string', 'max:50'],
+            'price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'status' => ['sometimes', 'required', 'string', 'in:planning,active,on_hold,completed'],
             'start_date' => ['sometimes', 'nullable', 'date'],
             'due_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:start_date'],
             'member_ids' => ['nullable', 'array'],

@@ -19,7 +19,8 @@ class StoreProjectRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'status' => ['nullable', 'string', 'max:50'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'status' => ['nullable', 'string', 'in:planning,active,on_hold,completed'],
             'start_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'member_ids' => ['nullable', 'array'],

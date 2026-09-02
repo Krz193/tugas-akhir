@@ -73,6 +73,44 @@ export default function ProjectForm({
 
             <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="status">Status</Label>
+
+                    <select
+                        id="status"
+                        value={data.status || 'planning'}
+                        onChange={(e) => setData('status', e.target.value)}
+                        disabled={processing}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <option value="planning">Planning</option>
+                        <option value="active">Active</option>
+                        <option value="on_hold">On Hold</option>
+                        <option value="completed">Completed</option>
+                    </select>
+
+                    <InputError message={errors.status} />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="price">Project Value (Rp)</Label>
+
+                    <Input
+                        id="price"
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={data.price ?? ''}
+                        onChange={(e) => setData('price', e.target.value)}
+                        placeholder="e.g. 50000000"
+                        disabled={processing}
+                    />
+
+                    <InputError message={errors.price} />
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
                     <Label htmlFor="start_date">Start Date</Label>
 
                     <Input

@@ -27,7 +27,11 @@ class ProjectController extends Controller
         $employeeId = $user->employee?->id;
 
         $projects = Project::query()
-            ->withCount(['tasks', 'members'])
+            ->withCount([
+                'tasks', 
+                'tasks as done_tasks_count' => fn ($query) => $query->where('status', 'done'),
+                'members'
+            ])
             ->when(
                 ! $this->isProjectManager($user) && ! $this->isBusinessDeveloper($user),
                 fn ($query) => $query->whereHas(
@@ -78,6 +82,11 @@ class ProjectController extends Controller
             'tasks' => fn ($q) => $q
                 ->with(['assignee.role', 'assignee.division'])
                 ->orderBy('id'),
+        ])->loadCount([
+            'tasks',
+            'tasks as todo_tasks_count' => fn ($query) => $query->where('status', 'todo'),
+            'tasks as in_progress_tasks_count' => fn ($query) => $query->where('status', 'in_progress'),
+            'tasks as done_tasks_count' => fn ($query) => $query->where('status', 'done'),
         ]);
 
         return Inertia::render('projects/show', [

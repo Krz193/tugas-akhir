@@ -1,7 +1,16 @@
-import { Head, useForm } from '@inertiajs/react';
-import { CalendarDays, CheckCircle2, Clock, Circle, Plus } from 'lucide-react';
+import { Head, router, useForm } from '@inertiajs/react';
+import {
+    Banknote,
+    CalendarDays,
+    CheckCircle2,
+    Clock,
+    Circle,
+    Plus,
+    Trash2,
+} from 'lucide-react';
 import { useEffect } from 'react';
 import { useState } from 'react';
+import { DeleteProjectDialog } from '@/components/projects/delete-project-dialog';
 import ProjectForm from '@/components/projects/project-form';
 import { CreateTaskDialog } from '@/components/tasks/create-task-dialog';
 import { EditTaskDialog } from '@/components/tasks/edit-task-dialog';
@@ -49,6 +58,17 @@ function formatDate(date: string | null) {
         day: 'numeric',
         year: 'numeric',
     });
+}
+
+function formatCurrency(amount: number | string | null | undefined) {
+    if (amount === null || amount === undefined || amount === '') return null;
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(num)) return null;
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+    }).format(num);
 }
 
 function statusLabel(status: TaskStatus) {
@@ -133,15 +153,31 @@ export default function ProjectShow({
     const [taskBeingEdited, setTaskBeingEdited] = useState<Task | null>(null);
 
     const [editOpen, setEditOpen] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
 
     const { data, setData, patch, processing, errors } =
         useForm<ProjectFormData>({
             name: project.name ?? '',
             description: project.description ?? '',
+            price: project.price ?? '',
+            status: project.status,
             start_date: project.start_date ?? '',
             due_date: project.due_date ?? '',
             member_ids: project.members.map((member) => member.employee_id),
         });
+
+    useEffect(() => {
+        setData((prev) => ({
+            ...prev,
+            name: project.name ?? '',
+            description: project.description ?? '',
+            price: project.price ?? '',
+            status: project.status,
+            start_date: project.start_date ?? '',
+            due_date: project.due_date ?? '',
+            member_ids: project.members.map((member) => member.employee_id),
+        }));
+    }, [project]);
 
     const {
         selectedTask,
@@ -177,6 +213,18 @@ export default function ProjectShow({
         new URLSearchParams(window.location.search).get('task'),
     );
 
+    const totalTasksCount = project.tasks_count ?? project.tasks.length;
+    const todoTasksCount =
+        project.todo_tasks_count ??
+        project.tasks.filter((task) => task.status === 'todo').length;
+    const inProgressTasksCount =
+        project.in_progress_tasks_count ??
+        project.tasks.filter((task) => task.status === 'in_progress').length;
+    const doneTasksCount =
+        project.done_tasks_count ??
+        project.tasks.filter((task) => task.status === 'done').length;
+    const formattedPrice = formatCurrency(project.price);
+
     useEffect(() => {
         if (!taskId) return;
 
@@ -205,15 +253,39 @@ export default function ProjectShow({
                                     {project.name}
                                 </h1>
 
-                                <Badge
-                                    variant={
-                                        project.status === 'active'
-                                            ? 'default'
-                                            : 'secondary'
-                                    }
-                                >
-                                    {project.status.replace('_', ' ')}
-                                </Badge>
+                                {isPm ? (
+                                    <select
+                                        value={project.status}
+                                        onChange={(e) => {
+                                            router.patch(
+                                                `/projects/${project.id}`,
+                                                { status: e.target.value },
+                                                { preserveScroll: true },
+                                            );
+                                        }}
+                                        className="h-7 cursor-pointer rounded-md border bg-background px-2 text-xs font-medium text-foreground shadow-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                        title="Change Project Status"
+                                    >
+                                        <option value="planning">Planning</option>
+                                        <option value="active">Active</option>
+                                        <option value="on_hold">On Hold</option>
+                                        <option value="completed">Completed</option>
+                                    </select>
+                                ) : (
+                                    <Badge
+                                        variant={
+                                            project.status === 'active'
+                                                ? 'default'
+                                                : project.status === 'completed'
+                                                  ? 'outline'
+                                                  : project.status === 'on_hold'
+                                                    ? 'destructive'
+                                                    : 'secondary'
+                                        }
+                                    >
+                                        {project.status.replace('_', ' ')}
+                                    </Badge>
+                                )}
                             </div>
 
                             {project.description && (
@@ -221,25 +293,62 @@ export default function ProjectShow({
                                     {project.description}
                                 </p>
                             )}
+
+                            <div className="mt-4 max-w-xs">
+                                <div className="mb-1 flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">Progress</span>
+                                    <span className="font-medium">
+                                        {project.progress_percentage !== null && project.progress_percentage !== undefined
+                                            ? `${project.progress_percentage}%`
+                                            : 'N/A'}
+                                    </span>
+                                </div>
+                                <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                                    <div
+                                        className="h-full bg-primary transition-all duration-500 ease-in-out"
+                                        style={{
+                                            width:
+                                                project.progress_percentage !== null && project.progress_percentage !== undefined
+                                                    ? `${project.progress_percentage}%`
+                                                    : '0%',
+                                        }}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         {isPm && (
-                            <Button
-                                variant="outline"
-                                onClick={() => setEditOpen(true)}
-                            >
-                                Edit Project
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setEditOpen(true)}
+                                >
+                                    Edit Project
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    onClick={() => setDeleteOpen(true)}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                    Delete Project
+                                </Button>
+                            </div>
                         )}
                     </div>
 
-                    {/* Tanggal project */}
-                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
+                    {/* Tanggal & Nilai project */}
+                    <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
                             <CalendarDays className="h-4 w-4" />
                             {formatDate(project.start_date)} to{' '}
                             {formatDate(project.due_date)}
                         </span>
+                        {formattedPrice && (
+                            <span className="flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-400">
+                                <Banknote className="h-4 w-4" />
+                                {formattedPrice}
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -265,10 +374,10 @@ export default function ProjectShow({
                 {/* Daftar task */}
                 <div>
                     <div className="mb-3 flex items-center justify-between">
-                        <h2 className="font-semibold">
+                        <h2 className="font-semibold text-lg">
                             Tasks{' '}
-                            <span className="font-normal text-muted-foreground">
-                                ({project.tasks.length})
+                            <span className="font-normal text-muted-foreground text-sm">
+                                ({totalTasksCount})
                             </span>
                         </h2>
                         {isPm && (
@@ -280,6 +389,48 @@ export default function ProjectShow({
                                 Add Task
                             </Button>
                         )}
+                    </div>
+
+                    {/* Ringkasan status task */}
+                    <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        <div className="rounded-lg border bg-card p-3 shadow-xs">
+                            <div className="text-xs font-medium text-muted-foreground">
+                                Total Tasks
+                            </div>
+                            <div className="mt-1 text-2xl font-bold">
+                                {totalTasksCount}
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border bg-card p-3 shadow-xs">
+                            <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                                <span>To Do</span>
+                                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                            </div>
+                            <div className="mt-1 text-2xl font-bold text-rose-600 dark:text-rose-400">
+                                {todoTasksCount}
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border bg-card p-3 shadow-xs">
+                            <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                                <span>In Progress</span>
+                                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                            </div>
+                            <div className="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                {inProgressTasksCount}
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border bg-card p-3 shadow-xs">
+                            <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                                <span>Done</span>
+                                <span className="h-2 w-2 rounded-full bg-green-500" />
+                            </div>
+                            <div className="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">
+                                {doneTasksCount}
+                            </div>
+                        </div>
                     </div>
 
                     {project.tasks.length === 0 ? (
@@ -502,6 +653,12 @@ export default function ProjectShow({
                     </form>
                 </DialogContent>
             </Dialog>
+
+            <DeleteProjectDialog
+                project={project}
+                open={deleteOpen}
+                onOpenChange={setDeleteOpen}
+            />
         </AppLayout>
     );
 }

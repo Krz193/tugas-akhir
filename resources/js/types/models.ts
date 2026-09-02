@@ -53,13 +53,18 @@ export type Project = {
     name: string;
     description: string | null;
     status: ProjectStatus;
+    price?: string | number | null;
     start_date: string | null;
     due_date: string | null;
     members?: ProjectMember[];
     tasks?: Task[];
     project_messages?: ProjectMessage[];
     tasks_count?: number;
+    todo_tasks_count?: number;
+    in_progress_tasks_count?: number;
+    done_tasks_count?: number;
     members_count?: number;
+    progress_percentage?: number | null;
     created_at: string;
     updated_at: string;
 };
