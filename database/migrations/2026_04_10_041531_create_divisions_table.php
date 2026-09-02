@@ -13,8 +13,7 @@ return new class extends Migration
     {
         Schema::create('divisions', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique();
-            $table->string('code', 50)->nullable()->unique();
+            $table->string('name', 50)->unique();
             $table->timestamps();
         });
     }

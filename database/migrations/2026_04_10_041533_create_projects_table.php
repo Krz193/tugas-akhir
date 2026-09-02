@@ -15,9 +15,9 @@ return new class extends Migration
     {
         Schema::create('projects', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->string('name', 150);
             $table->text('description')->nullable();
-            $table->string('status')->default('planning');
+            $table->string('status', 50)->default('planning');
             $table->date('start_date')->nullable();
             $table->date('due_date')->nullable();
             $table->timestamps();

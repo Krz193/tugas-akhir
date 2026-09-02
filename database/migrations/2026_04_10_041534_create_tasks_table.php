@@ -19,9 +19,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('project_id')->constrained()->cascadeOnDelete();
             $table->foreignId('assigned_employee_id')->nullable()->constrained('employees')->nullOnDelete();
-            $table->string('title');
+            $table->string('title', 50);
             $table->text('description')->nullable();
-            $table->string('status')->default('todo');
+            $table->string('status', 50)->default('todo');
             $table->date('start_date')->nullable();
             $table->date('due_date')->nullable();
             $table->timestamps();
