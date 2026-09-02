@@ -129,3 +129,21 @@ test('team member filter only changes task performance metrics', function () {
             ->has('teamMembers', 2)
         );
 });
+
+test('project manager can export dashboard to excel', function () {
+    $role = Role::query()->create([
+        'name' => 'Project Manager',
+        'slug' => 'project-manager',
+    ]);
+    $user = User::factory()->create();
+    Employee::factory()->create([
+        'user_id' => $user->id,
+        'role_id' => $role->id,
+    ]);
+
+    $response = $this->actingAs($user)->get(route('dashboard.export'));
+
+    $response->assertOk();
+    $response->assertHeader('content-disposition');
+});
+

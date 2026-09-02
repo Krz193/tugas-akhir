@@ -54,6 +54,7 @@ interface TimelineProject {
     status: string;
     startDate: string | null;
     dueDate: string | null;
+    progressPercentage: number | null;
     url: string;
 }
 
@@ -114,6 +115,8 @@ interface DashboardProps {
     selectedDate: string;
     deadlinesByDate: DeadlineItem[];
     timelineData: TimelineProject[];
+    startMonth: string;
+    endMonth: string;
 }
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -503,7 +506,26 @@ function IncomingDueTaskList({ tasks }: { tasks: IncomingDueTask[] }) {
     );
 }
 
-function getTimelineRange(projects: TimelineProject[]) {
+function getTimelineRange(
+    projects: TimelineProject[],
+    startMonth?: string,
+    endMonth?: string,
+) {
+    if (startMonth && endMonth) {
+        const [sYear, sMonth] = startMonth.split('-').map(Number);
+        const [eYear, eMonth] = endMonth.split('-').map(Number);
+        const start = new Date(sYear, sMonth - 1, 1);
+        const end = new Date(eYear, eMonth, 0); // Last day of endMonth
+        return { start, end };
+    }
+
+    if (startMonth) {
+        const [sYear, sMonth] = startMonth.split('-').map(Number);
+        const start = new Date(sYear, sMonth - 1, 1);
+        const end = new Date(sYear, sMonth + 2, 0);
+        return { start, end };
+    }
+
     const datedProjects = projects.filter(
         (project) => project.startDate && project.dueDate,
     );
@@ -545,42 +567,125 @@ function getTimelineWeeks(start: Date, end: Date) {
 function getBarStyle(
     project: TimelineProject,
     timelineStart: Date,
+    timelineEnd: Date,
     totalDays: number,
 ) {
-    if (!project.startDate || !project.dueDate) {
-        return { left: '0%', width: '0%' };
+    if (!project.startDate && !project.dueDate) {
+        return { left: '0%', width: '0%', isHidden: true };
     }
 
-    const start = new Date(`${project.startDate}T00:00:00`);
-    const end = new Date(`${project.dueDate}T00:00:00`);
+    const start = project.startDate
+        ? new Date(`${project.startDate}T00:00:00`)
+        : timelineStart;
+    const end = project.dueDate
+        ? new Date(`${project.dueDate}T00:00:00`)
+        : timelineEnd;
+
+    // Check if outside viewport completely
+    if (end < timelineStart || start > timelineEnd) {
+        return { left: '0%', width: '0%', isHidden: true };
+    }
+
+    // Clamp to viewport
+    const clampedStart = Math.max(start.getTime(), timelineStart.getTime());
+    const clampedEnd = Math.min(end.getTime(), timelineEnd.getTime());
+
     const startOffset =
-        (start.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
+        (clampedStart - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
     const duration =
-        (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) + 1;
+        (clampedEnd - clampedStart) / (1000 * 60 * 60 * 24) + 1;
 
     return {
         left: `${Math.max(0, (startOffset / totalDays) * 100)}%`,
         width: `${Math.max(2, (duration / totalDays) * 100)}%`,
+        isContinuedLeft: start < timelineStart,
+        isContinuedRight: end > timelineEnd,
+        isHidden: false,
     };
 }
 
-function ProjectTimeline({ projects }: { projects: TimelineProject[] }) {
-    const { start, end } = useMemo(() => getTimelineRange(projects), [projects]);
+function getStatusColor(status: string) {
+    switch (status) {
+        case 'completed':
+            return {
+                bg: 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-700 dark:text-emerald-300',
+                fill: 'bg-emerald-500',
+            };
+        case 'active':
+            return {
+                bg: 'bg-blue-500/20 hover:bg-blue-500/30 border-blue-500/40 text-blue-700 dark:text-blue-300',
+                fill: 'bg-blue-600',
+            };
+        case 'on_hold':
+            return {
+                bg: 'bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/40 text-amber-700 dark:text-amber-300',
+                fill: 'bg-amber-500',
+            };
+        default:
+            return {
+                bg: 'bg-primary/20 hover:bg-primary/30 border-primary/40 text-primary',
+                fill: 'bg-primary',
+            };
+    }
+}
+
+function ProjectTimeline({
+    projects,
+    startMonth,
+    endMonth,
+}: {
+    projects: TimelineProject[];
+    startMonth?: string;
+    endMonth?: string;
+}) {
+    const { start, end } = useMemo(
+        () => getTimelineRange(projects, startMonth, endMonth),
+        [projects, startMonth, endMonth],
+    );
     const weeks = useMemo(() => getTimelineWeeks(start, end), [start, end]);
     const totalDays =
         (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) + 1;
     const timelineWidth = Math.max(weeks.length * 96, 720);
 
+    const today = new Date();
+    const todayOffset =
+        (today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+    const todayPercent = (todayOffset / totalDays) * 100;
+    const showToday = today >= start && today <= end;
+
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>Projects Timeline</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div>
+                    <CardTitle>Projects Timeline</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                        {startMonth && endMonth
+                            ? `Showing period: ${startMonth} to ${endMonth}`
+                            : 'All visible projects'}
+                    </p>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                    <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-blue-500" />
+                        <span className="text-muted-foreground">Active</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        <span className="text-muted-foreground">Completed</span>
+                    </div>
+                    {showToday && (
+                        <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-0.5 bg-rose-500" />
+                            <span className="text-muted-foreground">Today</span>
+                        </div>
+                    )}
+                </div>
             </CardHeader>
 
             <CardContent>
                 {projects.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                        No projects found.
+                        No projects found in this period.
                     </p>
                 ) : (
                     <div className="overflow-x-auto">
@@ -590,10 +695,10 @@ function ProjectTimeline({ projects }: { projects: TimelineProject[] }) {
                                 gridTemplateColumns: `220px ${timelineWidth}px`,
                             }}
                         >
-                            <div className="sticky left-0 z-10 border-b bg-card p-3 text-sm font-medium">
+                            <div className="sticky left-0 z-20 border-b bg-card p-3 text-sm font-semibold">
                                 Project
                             </div>
-                            <div className="border-b">
+                            <div className="relative border-b">
                                 <div
                                     className="grid"
                                     style={{
@@ -620,43 +725,102 @@ function ProjectTimeline({ projects }: { projects: TimelineProject[] }) {
                                 </div>
                             </div>
 
-                            {projects.map((project) => (
-                                <div key={project.id} className="contents">
-                                    <Link
-                                        href={project.url}
-                                        className="sticky left-0 z-10 border-b bg-card p-3 text-sm font-medium hover:bg-muted"
-                                    >
-                                        <span className="line-clamp-2">
-                                            {project.name}
-                                        </span>
-                                    </Link>
-                                    <div className="relative h-16 border-b">
-                                        <div
-                                            className="absolute inset-y-0 grid w-full"
-                                            style={{
-                                                gridTemplateColumns: `repeat(${weeks.length}, minmax(96px, 1fr))`,
-                                            }}
-                                        >
-                                            {weeks.map((week) => (
-                                                <div
-                                                    key={dateKey(week)}
-                                                    className="border-l"
-                                                />
-                                            ))}
-                                        </div>
+                            {projects.map((project) => {
+                                const bar = getBarStyle(
+                                    project,
+                                    start,
+                                    end,
+                                    totalDays,
+                                );
+                                const colors = getStatusColor(project.status);
+
+                                return (
+                                    <div key={project.id} className="contents">
                                         <Link
                                             href={project.url}
-                                            className="absolute top-1/2 h-6 -translate-y-1/2 rounded-md bg-primary/80 hover:bg-primary"
-                                            style={getBarStyle(
-                                                project,
-                                                start,
-                                                totalDays,
+                                            className="sticky left-0 z-10 flex flex-col justify-center border-b bg-card p-3 text-sm hover:bg-muted"
+                                        >
+                                            <span className="line-clamp-1 font-medium">
+                                                {project.name}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {project.progressPercentage !== null
+                                                    ? `${project.progressPercentage}% progress`
+                                                    : 'No tasks'}
+                                            </span>
+                                        </Link>
+                                        <div className="relative h-16 border-b">
+                                            {/* Column lines */}
+                                            <div
+                                                className="absolute inset-y-0 grid w-full"
+                                                style={{
+                                                    gridTemplateColumns: `repeat(${weeks.length}, minmax(96px, 1fr))`,
+                                                }}
+                                            >
+                                                {weeks.map((week) => (
+                                                    <div
+                                                        key={dateKey(week)}
+                                                        className="border-l"
+                                                    />
+                                                ))}
+                                            </div>
+
+                                            {/* Today indicator vertical line */}
+                                            {showToday && (
+                                                <div
+                                                    className="absolute inset-y-0 z-10 border-r-2 border-dashed border-rose-500/80 pointer-events-none"
+                                                    style={{
+                                                        left: `${todayPercent}%`,
+                                                    }}
+                                                    title={`Today: ${formatDate(today.toISOString())}`}
+                                                />
                                             )}
-                                            title={`${project.name}: ${formatDate(project.startDate)} - ${formatDate(project.dueDate)}`}
-                                        />
+
+                                            {/* Project bar */}
+                                            {!bar.isHidden && (
+                                                <Link
+                                                    href={project.url}
+                                                    className={cn(
+                                                        'group absolute top-1/2 h-7 -translate-y-1/2 overflow-hidden rounded-md border text-xs transition-all shadow-sm',
+                                                        colors.bg,
+                                                        bar.isContinuedLeft && 'rounded-l-none border-l-dashed border-l-2',
+                                                        bar.isContinuedRight && 'rounded-r-none border-r-dashed border-r-2',
+                                                    )}
+                                                    style={{
+                                                        left: bar.left,
+                                                        width: bar.width,
+                                                    }}
+                                                    title={`${project.name} (${project.status}): ${formatDate(project.startDate)} - ${formatDate(project.dueDate)} | Progress: ${project.progressPercentage ?? 0}%`}
+                                                >
+                                                    {/* Progress fill */}
+                                                    {project.progressPercentage !== null && (
+                                                        <div
+                                                            className={cn(
+                                                                'absolute inset-y-0 left-0 opacity-25 group-hover:opacity-35 transition-opacity',
+                                                                colors.fill,
+                                                            )}
+                                                            style={{
+                                                                width: `${project.progressPercentage}%`,
+                                                            }}
+                                                        />
+                                                    )}
+
+                                                    <div className="relative z-10 flex h-full items-center justify-between px-2 font-medium truncate">
+                                                        <span className="truncate">
+                                                            {project.name}
+                                                        </span>
+                                                        {project.progressPercentage !== null && (
+                                                            <span className="ml-1.5 text-[10px] font-semibold opacity-80">
+                                                                {project.progressPercentage}%
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </Link>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -676,6 +840,8 @@ export default function Dashboard({
     selectedDate,
     deadlinesByDate,
     timelineData,
+    startMonth,
+    endMonth,
 }: DashboardProps) {
     const [selectedCalendarDate, setSelectedCalendarDate] =
         useState(selectedDate);
@@ -712,6 +878,23 @@ export default function Dashboard({
             '/dashboard',
             {
                 employee_id: employeeId || undefined,
+                start_month: startMonth || undefined,
+                end_month: endMonth || undefined,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+            },
+        );
+    }
+
+    function applyDateFilter(start: string, end: string) {
+        router.get(
+            '/dashboard',
+            {
+                employee_id: selectedEmployeeId || undefined,
+                start_month: start || undefined,
+                end_month: end || undefined,
             },
             {
                 preserveScroll: true,
@@ -742,8 +925,33 @@ export default function Dashboard({
 
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between pb-4">
                             <CardTitle>Project Metrics</CardTitle>
+
+                            <div className="flex items-center gap-2">
+                                <a
+                                    href={`/dashboard/export?employee_id=${selectedEmployeeId || ''}&start_month=${startMonth || ''}&end_month=${endMonth || ''}`}
+                                    className="inline-flex h-8 items-center justify-center rounded-md border bg-primary px-3 text-xs font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                                >
+                                    Export Excel
+                                </a>
+
+                                <div className="mx-2 h-4 w-px bg-border"></div>
+
+                                <input
+                                    type="month"
+                                    className="h-8 rounded-md border bg-background px-2 text-xs"
+                                    value={startMonth}
+                                    onChange={(e) => applyDateFilter(e.target.value, endMonth)}
+                                />
+                                <span className="text-xs text-muted-foreground">to</span>
+                                <input
+                                    type="month"
+                                    className="h-8 rounded-md border bg-background px-2 text-xs"
+                                    value={endMonth}
+                                    onChange={(e) => applyDateFilter(startMonth, e.target.value)}
+                                />
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -836,7 +1044,11 @@ export default function Dashboard({
                     <IncomingDueTaskList tasks={incomingDueTasks} />
                 </div>
 
-                <ProjectTimeline projects={timelineData} />
+                <ProjectTimeline
+                    projects={timelineData}
+                    startMonth={startMonth}
+                    endMonth={endMonth}
+                />
             </div>
 
             <DeadlineModal

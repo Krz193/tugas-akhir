@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\DashboardExport;
 use App\Models\Employee;
 use App\Models\Project;
 use App\Models\Task;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DashboardController extends Controller
 {
@@ -17,11 +20,17 @@ class DashboardController extends Controller
 
         $selectedDate = $request->date('date') ?? today();
         $selectedEmployeeId = $this->selectedTeamMemberId($request);
-        $accessibleProjectIds = $this->accessibleProjectIds($request);
+        
+        $startMonthStr = $request->string('start_month')->value();
+        $endMonthStr = $request->string('end_month')->value();
+        $startDate = $startMonthStr ? Carbon::parse($startMonthStr)->startOfMonth() : null;
+        $endDate = $endMonthStr ? Carbon::parse($endMonthStr)->endOfMonth() : null;
+
+        $accessibleProjectIds = $this->accessibleProjectIds($request, $startDate, $endDate);
 
         return Inertia::render('dashboard', [
-            'projectSummary' => $this->getProjectSummary($accessibleProjectIds, $selectedEmployeeId),
-            'metricRecords' => $this->getMetricRecords($accessibleProjectIds, $selectedEmployeeId),
+            'projectSummary' => $this->getProjectSummary($accessibleProjectIds, $selectedEmployeeId, $startDate, $endDate),
+            'metricRecords' => $this->getMetricRecords($accessibleProjectIds, $selectedEmployeeId, $startDate, $endDate),
             'teamMembers' => $this->getTeamMembers(),
             'selectedEmployeeId' => $selectedEmployeeId,
             'recentActivities' => $this->getRecentActivities($accessibleProjectIds),
@@ -30,10 +39,33 @@ class DashboardController extends Controller
             'selectedDate' => $selectedDate->toDateString(),
             'deadlinesByDate' => $this->getDeadlinesByDate($accessibleProjectIds, $selectedDate),
             'timelineData' => $this->getTimelineData($accessibleProjectIds),
+            'startMonth' => $startMonthStr,
+            'endMonth' => $endMonthStr,
         ]);
     }
 
-    private function accessibleProjectIds(Request $request)
+    public function export(Request $request)
+    {
+        $this->ensureCanViewDashboard($request);
+
+        $selectedEmployeeId = $this->selectedTeamMemberId($request);
+        
+        $startMonthStr = $request->string('start_month')->value();
+        $endMonthStr = $request->string('end_month')->value();
+        $startDate = $startMonthStr ? Carbon::parse($startMonthStr)->startOfMonth() : null;
+        $endDate = $endMonthStr ? Carbon::parse($endMonthStr)->endOfMonth() : null;
+
+        $accessibleProjectIds = $this->accessibleProjectIds($request, $startDate, $endDate);
+
+        $data = [
+            'projectSummary' => $this->getProjectSummary($accessibleProjectIds, $selectedEmployeeId, $startDate, $endDate),
+            'metricRecords' => $this->getMetricRecords($accessibleProjectIds, $selectedEmployeeId, $startDate, $endDate),
+        ];
+
+        return Excel::download(new DashboardExport($data), 'dashboard_metrics.xlsx');
+    }
+
+    private function accessibleProjectIds(Request $request, $startDate = null, $endDate = null)
     {
         $user = $request->user();
         $employeeId = $user?->employee?->id;
@@ -51,7 +83,30 @@ class DashboardController extends Controller
             });
         }
 
+        $projectsQuery = $this->applyMonthFilter($projectsQuery, $startDate, $endDate);
+
         return $projectsQuery->pluck('id');
+    }
+
+    private function applyMonthFilter($query, $startDate, $endDate)
+    {
+        if ($startDate && $endDate) {
+            $query->where(function ($q) use ($startDate, $endDate) {
+                // start_date <= endDate
+                $q->where(function ($sub) use ($endDate) {
+                    $sub->whereNotNull('start_date')
+                        ->whereDate('start_date', '<=', $endDate);
+                })->orWhere(function ($sub) use ($endDate) {
+                    $sub->whereNull('start_date')
+                        ->whereDate('created_at', '<=', $endDate);
+                });
+            })->where(function ($q) use ($startDate) {
+                // due_date >= startDate or due_date is null
+                $q->whereNull('due_date')
+                  ->orWhereDate('due_date', '>=', $startDate);
+            });
+        }
+        return $query;
     }
 
     private function ensureCanViewDashboard(Request $request): void
@@ -81,7 +136,7 @@ class DashboardController extends Controller
         return $isTeamMember ? $employeeId : null;
     }
 
-    private function taskMetricQuery($projectIds, ?int $selectedEmployeeId)
+    private function taskMetricQuery($projectIds, ?int $selectedEmployeeId, $startDate = null, $endDate = null)
     {
         $query = Task::query()
             ->whereIn('project_id', $projectIds);
@@ -90,10 +145,12 @@ class DashboardController extends Controller
             $query->where('assigned_employee_id', $selectedEmployeeId);
         }
 
+        $query = $this->applyMonthFilter($query, $startDate, $endDate);
+
         return $query;
     }
 
-    public function getProjectSummary($projectIds, ?int $selectedEmployeeId = null): array
+    public function getProjectSummary($projectIds, ?int $selectedEmployeeId = null, $startDate = null, $endDate = null): array
     {
         $today = today();
 
@@ -110,19 +167,19 @@ class DashboardController extends Controller
                 ->where('status', '!=', 'completed')
                 ->whereDate('due_date', '<', $today)
                 ->count(),
-            'totalTask' => $this->taskMetricQuery($projectIds, $selectedEmployeeId)
+            'totalTask' => $this->taskMetricQuery($projectIds, $selectedEmployeeId, $startDate, $endDate)
                 ->count(),
-            'unfinishedTask' => $this->taskMetricQuery($projectIds, $selectedEmployeeId)
+            'unfinishedTask' => $this->taskMetricQuery($projectIds, $selectedEmployeeId, $startDate, $endDate)
                 ->where('status', '!=', 'done')
                 ->count(),
-            'overdueTask' => $this->taskMetricQuery($projectIds, $selectedEmployeeId)
+            'overdueTask' => $this->taskMetricQuery($projectIds, $selectedEmployeeId, $startDate, $endDate)
                 ->where('status', '!=', 'done')
                 ->whereDate('due_date', '<', $today)
                 ->count(),
         ];
     }
 
-    private function getMetricRecords($projectIds, ?int $selectedEmployeeId = null): array
+    private function getMetricRecords($projectIds, ?int $selectedEmployeeId = null, $startDate = null, $endDate = null): array
     {
         $today = today();
 
@@ -149,20 +206,20 @@ class DashboardController extends Controller
                     ->get()
             ),
             'totalTask' => $this->taskMetricRecords(
-                $this->taskMetricQuery($projectIds, $selectedEmployeeId)
+                $this->taskMetricQuery($projectIds, $selectedEmployeeId, $startDate, $endDate)
                     ->with(['project', 'assignee'])
                     ->orderBy('title')
                     ->get()
             ),
             'unfinishedTask' => $this->taskMetricRecords(
-                $this->taskMetricQuery($projectIds, $selectedEmployeeId)
+                $this->taskMetricQuery($projectIds, $selectedEmployeeId, $startDate, $endDate)
                     ->with(['project', 'assignee'])
                     ->where('status', '!=', 'done')
                     ->orderBy('due_date')
                     ->get()
             ),
             'overdueTask' => $this->taskMetricRecords(
-                $this->taskMetricQuery($projectIds, $selectedEmployeeId)
+                $this->taskMetricQuery($projectIds, $selectedEmployeeId, $startDate, $endDate)
                     ->with(['project', 'assignee'])
                     ->where('status', '!=', 'done')
                     ->whereDate('due_date', '<', $today)
@@ -344,6 +401,12 @@ class DashboardController extends Controller
     {
         return Project::query()
             ->whereIn('id', $projectIds)
+            ->withCount([
+                'tasks',
+                'tasks as done_tasks_count' => function ($query): void {
+                    $query->where('status', 'done');
+                },
+            ])
             ->orderBy('start_date')
             ->get()
             ->map(function (Project $project): array {
@@ -353,6 +416,7 @@ class DashboardController extends Controller
                     'status' => $project->status,
                     'startDate' => $project->start_date?->toDateString(),
                     'dueDate' => $project->due_date?->toDateString(),
+                    'progressPercentage' => $project->progress_percentage,
                     'url' => route('projects.show', $project),
                 ];
             });
