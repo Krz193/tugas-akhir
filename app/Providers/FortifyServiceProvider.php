@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Http\Responses\RoleBasedLoginResponse;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -11,21 +12,20 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
+use Laravel\Fortify\Contracts\LoginResponse;
+use Laravel\Fortify\Contracts\TwoFactorLoginResponse;
 use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
+    /** Mendaftarkan service Fortify. */
     public function register(): void
     {
-        //
+        $this->app->singleton(LoginResponse::class, RoleBasedLoginResponse::class);
+        $this->app->singleton(TwoFactorLoginResponse::class, RoleBasedLoginResponse::class);
     }
 
-    /**
-     * Bootstrap any application services.
-     */
+    /** Menyiapkan Fortify untuk auth. */
     public function boot(): void
     {
         $this->configureActions();
@@ -33,18 +33,14 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
     }
 
-    /**
-     * Configure Fortify actions.
-     */
+    /** Mengatur action untuk user dan password. */
     private function configureActions(): void
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
     }
 
-    /**
-     * Configure Fortify views.
-     */
+    /** Mengatur halaman auth Fortify. */
     private function configureViews(): void
     {
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
@@ -73,9 +69,7 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::confirmPasswordView(fn () => Inertia::render('auth/confirm-password'));
     }
 
-    /**
-     * Configure rate limiting.
-     */
+    /** Membatasi percobaan login. */
     private function configureRateLimiting(): void
     {
         RateLimiter::for('two-factor', function (Request $request) {

@@ -9,20 +9,22 @@ class DivisionSeeder extends Seeder
 {
     /**
      * Creates 3 company divisions.
-     * lead_user_id is left null here — UserSeeder assigns division leads
-     * after users exist, because a lead must be a member of the division first.
+     * Role and division assignment happens on Employee records.
      */
     public function run(): void
     {
         $divisions = [
-            ['name' => 'Engineering', 'code' => 'ENG'],
-            ['name' => 'Marketing',   'code' => 'MKT'],
-            ['name' => 'Design',      'code' => 'DES'],
+            ['name' => 'Project Management'],
+            ['name' => 'Business Development'],
+            ['name' => 'Web Development'],
+            ['name' => 'Graphic Design'],
+            ['name' => 'Ads Specialist'],
+            ['name' => 'Content & Copywriting'],
+            ['name' => 'Social Media Marketing'],
         ];
 
         foreach ($divisions as $division) {
             Division::firstOrCreate(
-                ['code' => $division['code']],
                 ['name' => $division['name']],
             );
         }

@@ -2,29 +2,32 @@
 
 namespace Database\Seeders;
 
+use App\Models\Employee;
 use App\Models\Message;
 use App\Models\Project;
+use App\Models\ProjectMessage;
 use App\Models\Task;
+use App\Models\Thread;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class MessageSeeder extends Seeder
 {
     /**
-     * Creates threaded discussions at both project and task level.
+     * Seeds communication data using the two approved separate mechanisms:
      *
-     * Each "thread" starts with a top-level message (parent_id = null),
-     * then has one or more replies (parent_id = the top message's id).
+     * Project communication: Project → ProjectMessage (message_project table)
+     * Task communication:    Task → Thread → Message
      *
-     * messageable_type uses the full Laravel model class path.
+     * No polymorphism. No parent_id threading. No shared table between mechanisms.
      */
     public function run(): void
     {
-        $pm      = User::where('email', 'pm@djitugo.test')->firstOrFail();
-        $bd      = User::where('email', 'bd@djitugo.test')->firstOrFail();
-        $member1 = User::where('email', 'member1@djitugo.test')->firstOrFail(); // Citra
-        $member2 = User::where('email', 'member2@djitugo.test')->firstOrFail(); // Deni
-        $member3 = User::where('email', 'member3@djitugo.test')->firstOrFail(); // Eko
+        $pm      = $this->employee('pm@djitugo.test');
+        $bd      = $this->employee('bd@djitugo.test');
+        $member1 = $this->employee('member1@djitugo.test'); // Citra
+        $member2 = $this->employee('member2@djitugo.test'); // Deni
+        $member3 = $this->employee('member3@djitugo.test'); // Eko
 
         $project1 = Project::where('name', 'Website Redesign')->firstOrFail();
         $project3 = Project::where('name', 'Brand Identity Refresh')->firstOrFail();
@@ -33,126 +36,109 @@ class MessageSeeder extends Seeder
         $taskTesting = Task::where('title', 'User Testing')->firstOrFail();
 
         // =================================================================
-        // Project 1 — Website Redesign: 2 top-level threads
+        // Project 1 — Website Redesign: project-level messages
         // =================================================================
 
-        // Thread 1: Kick-off notes from PM → replies from Deni and Citra
-        $thread1 = $this->post(
-            $pm,
-            $project1,
-            'Kick-off selesai. Kita mulai dari homepage redesign dulu ya. Deni tolong siapkan mockup minggu depan.'
-        );
+        ProjectMessage::create([
+            'project_id'   => $project1->id,
+            'sender_id'    => $pm->id,
+            'message_body' => 'Kick-off selesai. Kita mulai dari homepage redesign dulu ya. Deni tolong siapkan mockup minggu depan.',
+        ]);
 
-        $this->reply(
-            $member2, $project1, $thread1,
-            'Siap! Saya akan kirim draft mockup Jumat ini.'
-        );
+        ProjectMessage::create([
+            'project_id'   => $project1->id,
+            'sender_id'    => $member2->id,
+            'message_body' => 'Siap! Saya akan kirim draft mockup Jumat ini.',
+        ]);
 
-        $this->reply(
-            $member1, $project1, $thread1,
-            'Kalau mockup sudah fix, saya langsung mulai API integration.'
-        );
+        ProjectMessage::create([
+            'project_id'   => $project1->id,
+            'sender_id'    => $member1->id,
+            'message_body' => 'Kalau mockup sudah fix, saya langsung mulai API integration.',
+        ]);
 
-        // Thread 2: BD gives brand consistency feedback → PM replies
-        $thread2 = $this->post(
-            $bd,
-            $project1,
-            'Saya sudah review brief-nya. Pastikan tone visual konsisten dengan brand guideline yang lama ya.'
-        );
+        ProjectMessage::create([
+            'project_id'   => $project1->id,
+            'sender_id'    => $bd->id,
+            'message_body' => 'Saya sudah review brief-nya. Pastikan tone visual konsisten dengan brand guideline yang lama ya.',
+        ]);
 
-        $this->reply(
-            $pm, $project1, $thread2,
-            'Betul. Kita jadwalkan review bersama setelah mockup pertama selesai.'
-        );
-
-        // =================================================================
-        // Task — API Integration: 1 thread with back-and-forth replies
-        // =================================================================
-
-        $thread3 = $this->post(
-            $member1, $taskApi,
-            'Mulai integrasi hari ini. Pakai REST approach dengan JWT auth.'
-        );
-
-        $this->reply(
-            $pm, $taskApi, $thread3,
-            'Oke. Pastikan handle token refresh dengan benar ya, terutama saat session expired di tengah request.'
-        );
-
-        $this->reply(
-            $member1, $taskApi, $thread3,
-            'Sudah dihandle. Plus saya tambahkan retry logic untuk network error supaya UX-nya lebih mulus.'
-        );
+        ProjectMessage::create([
+            'project_id'   => $project1->id,
+            'sender_id'    => $pm->id,
+            'message_body' => 'Betul. Kita jadwalkan review bersama setelah mockup pertama selesai.',
+        ]);
 
         // =================================================================
-        // Task — User Testing: 1 thread requesting documentation
+        // Task — API Integration: thread messages
         // =================================================================
 
-        $thread4 = $this->post(
-            $member3, $taskTesting,
-            'Testing session pertama sudah selesai. Ada 3 pain point utama yang perlu diperbaiki segera.'
-        );
+        $thread1 = Thread::firstOrCreate(['task_id' => $taskApi->id]);
 
-        $this->reply(
-            $pm, $taskTesting, $thread4,
-            'Tolong dokumentasikan pain point-nya di sini supaya bisa langsung di-assign ke tim.'
-        );
+        Message::create([
+            'thread_id'    => $thread1->id,
+            'sender_id'    => $member1->id,
+            'message_body' => 'Mulai integrasi hari ini. Pakai REST approach dengan JWT auth.',
+        ]);
+
+        Message::create([
+            'thread_id'    => $thread1->id,
+            'sender_id'    => $pm->id,
+            'message_body' => 'Oke. Pastikan handle token refresh dengan benar ya, terutama saat session expired di tengah request.',
+        ]);
+
+        Message::create([
+            'thread_id'    => $thread1->id,
+            'sender_id'    => $member1->id,
+            'message_body' => 'Sudah dihandle. Plus saya tambahkan retry logic untuk network error supaya UX-nya lebih mulus.',
+        ]);
 
         // =================================================================
-        // Project 3 — Brand Identity Refresh: 1 thread involving all roles
+        // Task — User Testing: thread messages
         // =================================================================
 
-        $thread5 = $this->post(
-            $bd,
-            $project3,
-            'Riset brand kompetitor sudah selesai. Kesimpulan: kita perlu visual yang lebih modern dan bold.'
-        );
+        $thread2 = Thread::firstOrCreate(['task_id' => $taskTesting->id]);
 
-        $this->reply(
-            $pm, $project3, $thread5,
-            'Bagus! Deni, bisa jadikan riset ini sebagai referensi utama untuk konsep logo?'
-        );
+        Message::create([
+            'thread_id'    => $thread2->id,
+            'sender_id'    => $member3->id,
+            'message_body' => 'Testing session pertama sudah selesai. Ada 3 pain point utama yang perlu diperbaiki segera.',
+        ]);
 
-        $this->reply(
-            $member2, $project3, $thread5,
-            'Bisa! Saya akan buat 3 konsep berbeda untuk dipresentasikan minggu depan.'
-        );
-    }
+        Message::create([
+            'thread_id'    => $thread2->id,
+            'sender_id'    => $pm->id,
+            'message_body' => 'Tolong dokumentasikan pain point-nya di sini supaya bisa langsung di-assign ke tim.',
+        ]);
 
-    /**
-     * Creates a top-level message (a new thread) on a project or task.
-     *
-     * @param  \App\Models\User     $author      Who is posting
-     * @param  \App\Models\Project|\App\Models\Task  $owner  Where it's posted
-     * @param  string               $body        Message content
-     */
-    private function post(User $author, object $owner, string $body): Message
-    {
-        return Message::create([
-            'user_id'          => $author->id,
-            'messageable_type' => get_class($owner),   // e.g. "App\Models\Project"
-            'messageable_id'   => $owner->id,
-            'parent_id'        => null,                 // null = top-level message
-            'body'             => $body,
+        // =================================================================
+        // Project 3 — Brand Identity Refresh: project-level messages
+        // =================================================================
+
+        ProjectMessage::create([
+            'project_id'   => $project3->id,
+            'sender_id'    => $bd->id,
+            'message_body' => 'Riset brand kompetitor sudah selesai. Kesimpulan: kita perlu visual yang lebih modern dan bold.',
+        ]);
+
+        ProjectMessage::create([
+            'project_id'   => $project3->id,
+            'sender_id'    => $pm->id,
+            'message_body' => 'Bagus! Deni, bisa jadikan riset ini sebagai referensi utama untuk konsep logo?',
+        ]);
+
+        ProjectMessage::create([
+            'project_id'   => $project3->id,
+            'sender_id'    => $member2->id,
+            'message_body' => 'Bisa! Saya akan buat 3 konsep berbeda untuk dipresentasikan minggu depan.',
         ]);
     }
 
     /**
-     * Creates a reply to an existing message (nested thread).
-     *
-     * @param  \App\Models\User     $author   Who is replying
-     * @param  \App\Models\Project|\App\Models\Task  $owner  Same owner as the parent
-     * @param  \App\Models\Message  $parent   The message being replied to
-     * @param  string               $body     Reply content
+     * Resolve an employee record by the linked user's email.
      */
-    private function reply(User $author, object $owner, Message $parent, string $body): Message
+    private function employee(string $email): Employee
     {
-        return Message::create([
-            'user_id'          => $author->id,
-            'messageable_type' => get_class($owner),
-            'messageable_id'   => $owner->id,
-            'parent_id'        => $parent->id,  // links to the parent message
-            'body'             => $body,
-        ]);
+        return User::where('email', $email)->firstOrFail()->employee;
     }
 }

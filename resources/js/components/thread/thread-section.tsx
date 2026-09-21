@@ -1,116 +1,144 @@
-import { useForm, usePage } from '@inertiajs/react';
-import { useState } from 'react';
-import type { Message } from '@/types/models';
+import { useForm } from '@inertiajs/react';
+import { useEffect, useRef, useState } from 'react';
+import { useAuthUser } from '@/hooks/use-auth-user';
+import echo from '@/lib/echo';
+import type { Message, ProjectMessage } from '@/types/models';
 import { MessageCard } from './message-card';
 
+type MessageEvent = {
+    message: Message | ProjectMessage;
+};
+
 type ThreadSectionProps = {
-    messages: Message[];
-    messageableType: 'project' | 'task';
-    messageableId: number;
+    messages: Array<Message | ProjectMessage>;
+    postUrl: string;
     onMessageSent?: () => void;
+    realtimeChannel?: string;
+    realtimeEvent?: string;
+    canSend?: boolean;
 };
 
 export function ThreadSection({
     messages,
-    messageableType,
-    messageableId,
+    postUrl,
     onMessageSent,
+    realtimeChannel,
+    realtimeEvent,
+    canSend = true,
 }: ThreadSectionProps) {
-    const [replyingTo, setReplyingTo] = useState<number | null>(null);
-    const [replyBody, setReplyBody] = useState('');
-    const [editingMessageId, setEditingMessageId] = useState<number | null>(
-        null,
-    );
-    const [editingBody, setEditingBody] = useState('');
+    const { user } = useAuthUser();
+    const currentEmployeeId = user.employee?.id ?? null;
 
-    const { auth } = usePage<{
-        auth: {
-            user: {
-                id: number;
-            };
-        };
-    }>().props;
+    const [visibleMessages, setVisibleMessages] =
+        useState<Array<Message | ProjectMessage>>(messages);
+    const messageListRef = useRef<HTMLDivElement | null>(null);
 
-    const url =
-        messageableType === 'project'
-            ? `/projects/${messageableId}/messages`
-            : `/tasks/${messageableId}/messages`;
+    const { data, setData, post, processing, reset, errors } = useForm({
+        message_body: '',
+    });
 
-    const { data, setData, post, processing, reset, transform, errors } =
-        useForm({
-            body: '',
-            parent_id: null as number | null,
+    useEffect(() => {
+        setVisibleMessages(messages);
+    }, [messages]);
+
+    useEffect(() => {
+        const messageList = messageListRef.current;
+
+        if (!messageList) {
+            return;
+        }
+
+        messageList.scrollTop = messageList.scrollHeight;
+    }, [visibleMessages]);
+
+    useEffect(() => {
+        if (!realtimeChannel || !realtimeEvent) {
+            return;
+        }
+
+        const channel = echo.private(realtimeChannel);
+
+        channel.listen(realtimeEvent, (event: MessageEvent) => {
+            setVisibleMessages((currentMessages) => {
+                const messageAlreadyShown = currentMessages.some(
+                    (message) => message.id === event.message.id,
+                );
+
+                if (messageAlreadyShown) {
+                    return currentMessages;
+                }
+
+                return [...currentMessages, event.message];
+            });
         });
+
+        return () => {
+            echo.leave(realtimeChannel);
+        };
+    }, [realtimeChannel, realtimeEvent]);
 
     return (
         <div className="space-y-4">
-            {messages.length === 0 ? (
+            {visibleMessages.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
                     No discussion yet.
                 </div>
             ) : (
-                <div className="space-y-4">
-                    {messages.map((message) => (
+                <div
+                    ref={messageListRef}
+                    className="max-h-[28rem] space-y-3 overflow-y-auto rounded-lg border bg-background p-3"
+                >
+                    {visibleMessages.map((message) => (
                         <MessageCard
                             key={message.id}
                             message={message}
-                            authUserId={auth.user.id}
-                            url={url}
-                            replyingTo={replyingTo}
-                            setReplyingTo={setReplyingTo}
-                            replyBody={replyBody}
-                            setReplyBody={setReplyBody}
-                            editingMessageId={editingMessageId}
-                            setEditingMessageId={setEditingMessageId}
-                            editingBody={editingBody}
-                            setEditingBody={setEditingBody}
-                            errors={errors}
-                            processing={processing}
-                            onMessageSent={onMessageSent}
+                            isOwnMessage={
+                                currentEmployeeId !== null &&
+                                message.sender_id === currentEmployeeId
+                            }
                         />
                     ))}
                 </div>
             )}
 
-            <form
-                onSubmit={(e) => {
-                    e.preventDefault();
+            {canSend ? (
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
 
-                    transform((data) => ({
-                        ...data,
-                        parent_id: null,
-                    }));
+                        post(postUrl, {
+                            preserveScroll: true,
+                            onSuccess: () => {
+                                reset();
+                                onMessageSent?.();
+                            },
+                        });
+                    }}
+                    className="space-y-3"
+                >
+                    <textarea
+                        value={data.message_body}
+                        onChange={(e) => setData('message_body', e.target.value)}
+                        placeholder="Write a message..."
+                        className="flex min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    />
+                    {errors.message_body && (
+                        <p className="text-sm text-destructive">
+                            {errors.message_body}
+                        </p>
+                    )}
 
-                    post(url, {
-                        preserveScroll: true,
-                        onSuccess: () => {
-                            reset();
-                            onMessageSent?.();
-                        },
-                    });
-                }}
-                className="space-y-3"
-            >
-                <textarea
-                    value={data.body}
-                    onChange={(e) => setData('body', e.target.value)}
-                    placeholder="Write a message..."
-                    className="flex min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-                {errors.body && (
-                    <p className="text-sm text-destructive">{errors.body}</p>
-                )}
-
-                <div className="flex justify-end">
-                    <button
-                        type="submit"
-                        disabled={processing || !data.body.trim()}
-                        className="rounded-md border px-4 py-2 text-sm"
-                    >
-                        Send Message
-                    </button>
-                </div>
-            </form>
+                    <div className="flex justify-end">
+                        <button
+                            type="submit"
+                            disabled={processing || !data.message_body.trim()}
+                            className="rounded-md border px-4 py-2 text-sm"
+                        >
+                            Send Message
+                        </button>
+                    </div>
+                </form>
+            ) : null}
         </div>
     );
 }

@@ -1,10 +1,4 @@
-// =============================================================================
-// nav-main.tsx — Renders a labeled group of sidebar navigation links
-//
-// Accepts an optional `label` prop so different sidebar sections can have
-// different group headings (e.g. "Platform", "Reports").
-// Each item highlights automatically when its URL matches the current page.
-// =============================================================================
+// Menampilkan grup menu pada sidebar.
 
 import { Link } from '@inertiajs/react';
 import {
@@ -19,7 +13,7 @@ import type { NavItem } from '@/types';
 
 type NavMainProps = {
     items: NavItem[];
-    /** Optional section heading shown above the nav items. Defaults to "Platform". */
+    /** Judul bagian menu. */
     label?: string;
 };
 
@@ -28,7 +22,7 @@ export function NavMain({ items = [], label = 'Platform' }: NavMainProps) {
 
     return (
         <SidebarGroup className="px-2 py-0">
-            {/* Section label — e.g. "Platform" or "Reports" */}
+            {/* Judul grup menu */}
             <SidebarGroupLabel>{label}</SidebarGroupLabel>
 
             <SidebarMenu>
@@ -36,7 +30,7 @@ export function NavMain({ items = [], label = 'Platform' }: NavMainProps) {
                     <SidebarMenuItem key={item.title}>
                         <SidebarMenuButton
                             asChild
-                            // isActive highlights the item when you're on its page
+                            // Menandai menu yang sedang dibuka.
                             isActive={isCurrentUrl(item.href)}
                             tooltip={{ children: item.title }}
                         >

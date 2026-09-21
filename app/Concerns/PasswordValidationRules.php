@@ -7,7 +7,7 @@ use Illuminate\Validation\Rules\Password;
 trait PasswordValidationRules
 {
     /**
-     * Get the validation rules used to validate passwords.
+     * Aturan validasi untuk password baru.
      *
      * @return array<int, \Illuminate\Contracts\Validation\Rule|array<mixed>|string>
      */
@@ -17,7 +17,7 @@ trait PasswordValidationRules
     }
 
     /**
-     * Get the validation rules used to validate the current password.
+     * Aturan validasi untuk password saat ini.
      *
      * @return array<int, \Illuminate\Contracts\Validation\Rule|array<mixed>|string>
      */

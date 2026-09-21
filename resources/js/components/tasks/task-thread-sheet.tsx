@@ -63,9 +63,10 @@ export function TaskThreadSheet({
                             task && (
                                 <ThreadSection
                                     messages={messages}
-                                    messageableType="task"
-                                    messageableId={task.id}
+                                    postUrl={`/tasks/${task.id}/messages`}
                                     onMessageSent={onMessageSent}
+                                    realtimeChannel={`tasks.${task.id}`}
+                                    realtimeEvent=".task.message.sent"
                                 />
                             )
                         )}

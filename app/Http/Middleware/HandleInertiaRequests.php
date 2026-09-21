@@ -8,28 +8,22 @@ use Inertia\Middleware;
 class HandleInertiaRequests extends Middleware
 {
     /**
-     * The root template that's loaded on the first page visit.
-     *
-     * @see https://inertiajs.com/server-side-setup#root-template
+     * Template utama untuk halaman Inertia.
      *
      * @var string
      */
     protected $rootView = 'app';
 
-    /**
-     * Determines the current asset version.
-     *
-     * @see https://inertiajs.com/asset-versioning
-     */
+    /** Menentukan versi asset frontend. */
     public function version(Request $request): ?string
     {
         return parent::version($request);
     }
 
     /**
-     * Define the props that are shared by default.
+     * Data bersama untuk semua halaman Inertia.
      *
-     * @see https://inertiajs.com/shared-data
+     * Role dan divisi diambil dari Employee.
      *
      * @return array<string, mixed>
      */
@@ -39,10 +33,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                // Include the full user with their role and division so the
-                // frontend can make role-aware decisions (e.g. show "Create
-                // Project" button only to project managers).
-                'user' => $request->user()?->load('role', 'division'),
+                'user' => $request->user()?->load('employee.role', 'employee.division'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

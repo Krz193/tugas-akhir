@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client';
 import '../css/app.css';
 import { initializeTheme } from './hooks/use-appearance';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'Djitugo Project Management';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
@@ -28,5 +28,5 @@ createInertiaApp({
     },
 });
 
-// This will set light / dark mode on load...
+// Menyiapkan tema saat aplikasi dibuka.
 initializeTheme();

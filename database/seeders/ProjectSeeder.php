@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Employee;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\User;
@@ -10,29 +11,30 @@ use Illuminate\Database\Seeder;
 class ProjectSeeder extends Seeder
 {
     /**
-     * Creates 3 projects with different statuses and member sets.
-     * All projects are created by the PM (Andi Pratama).
+     * Creates 3 projects and assigns members (employees only — PM is not a project member).
      *
-     * Project 1 — Website Redesign      (active,   all 5 users)
-     * Project 2 — Mobile App Dev        (planning, PM + 2 members)
-     * Project 3 — Brand Identity Refresh(active,   PM + BD + 1 member)
+     * Project 1 — Website Redesign      (active,   BD + 3 members; member1 is leader)
+     * Project 2 — Mobile App Dev        (planning, 2 members; member1 is leader)
+     * Project 3 — Brand Identity Refresh(active,   BD + 1 member; member3 is leader)
+     *
+     * Rules:
+     * - The Project Manager oversees projects globally and is NOT inserted into project_members.
+     * - is_leader is assigned to one Team Member per project.
+     * - BD may be a project member but is not eligible as leader (not a Team Member).
      */
     public function run(): void
     {
-        $pm      = User::where('email', 'pm@djitugo.test')->firstOrFail();
-        $bd      = User::where('email', 'bd@djitugo.test')->firstOrFail();
-        $member1 = User::where('email', 'member1@djitugo.test')->firstOrFail(); // Citra
-        $member2 = User::where('email', 'member2@djitugo.test')->firstOrFail(); // Deni
-        $member3 = User::where('email', 'member3@djitugo.test')->firstOrFail(); // Eko
+        $bd      = $this->employee('bd@djitugo.test');
+        $member1 = $this->employee('member1@djitugo.test'); // Citra
+        $member2 = $this->employee('member2@djitugo.test'); // Deni
+        $member3 = $this->employee('member3@djitugo.test'); // Eko
 
         // -----------------------------------------------------------------
         // Project 1: Website Redesign
-        // Large project, everyone is involved.
         // -----------------------------------------------------------------
         $project1 = Project::firstOrCreate(
             ['name' => 'Website Redesign'],
             [
-                'created_by'  => $pm->id,
                 'description' => 'Redesign the company website with modern UI/UX, improved performance, and mobile-first approach.',
                 'status'      => 'active',
                 'start_date'  => '2026-01-10',
@@ -40,16 +42,19 @@ class ProjectSeeder extends Seeder
             ],
         );
 
-        $this->addMembers($project1, $pm, [$bd, $member1, $member2, $member3], '2026-01-10');
+        $this->addMembers($project1, [
+            ['employee' => $bd,      'is_leader' => false, 'date_joined' => '2026-01-10'],
+            ['employee' => $member1, 'is_leader' => true,  'date_joined' => '2026-01-10'],
+            ['employee' => $member2, 'is_leader' => false, 'date_joined' => '2026-01-10'],
+            ['employee' => $member3, 'is_leader' => false, 'date_joined' => '2026-01-10'],
+        ]);
 
         // -----------------------------------------------------------------
         // Project 2: Mobile App Development
-        // Still in planning, smaller team.
         // -----------------------------------------------------------------
         $project2 = Project::firstOrCreate(
             ['name' => 'Mobile App Development'],
             [
-                'created_by'  => $pm->id,
                 'description' => 'Build a cross-platform mobile app for internal task tracking and team communication.',
                 'status'      => 'planning',
                 'start_date'  => '2026-03-01',
@@ -57,16 +62,17 @@ class ProjectSeeder extends Seeder
             ],
         );
 
-        $this->addMembers($project2, $pm, [$member1, $member2], '2026-03-01');
+        $this->addMembers($project2, [
+            ['employee' => $member1, 'is_leader' => true,  'date_joined' => '2026-03-01'],
+            ['employee' => $member2, 'is_leader' => false, 'date_joined' => '2026-03-01'],
+        ]);
 
         // -----------------------------------------------------------------
         // Project 3: Brand Identity Refresh
-        // Marketing/design focused, BD is heavily involved.
         // -----------------------------------------------------------------
         $project3 = Project::firstOrCreate(
             ['name' => 'Brand Identity Refresh'],
             [
-                'created_by'  => $pm->id,
                 'description' => 'Refresh the company brand identity including logo, color palette, and visual guidelines.',
                 'status'      => 'active',
                 'start_date'  => '2026-04-01',
@@ -74,30 +80,33 @@ class ProjectSeeder extends Seeder
             ],
         );
 
-        $this->addMembers($project3, $pm, [$bd, $member3], '2026-04-01');
+        $this->addMembers($project3, [
+            ['employee' => $bd,      'is_leader' => false, 'date_joined' => '2026-04-01'],
+            ['employee' => $member3, 'is_leader' => true,  'date_joined' => '2026-04-01'],
+        ]);
     }
 
     /**
-     * Adds a list of users to a project as members.
-     *
-     * @param  \App\Models\Project  $project   The project to add members to
-     * @param  \App\Models\User     $pm        The PM who is adding members (added_by)
-     * @param  \App\Models\User[]   $members   Users to add (excluding the PM creator)
-     * @param  string               $joinedAt  ISO date when they joined
+     * @param  array<int, array{employee: Employee, is_leader: bool, date_joined: string}>  $entries
      */
-    private function addMembers(Project $project, User $pm, array $members, string $joinedAt): void
+    private function addMembers(Project $project, array $entries): void
     {
-        foreach ($members as $member) {
+        foreach ($entries as $entry) {
             ProjectMember::firstOrCreate(
                 [
-                    'project_id' => $project->id,
-                    'user_id'    => $member->id,
+                    'project_id'  => $project->id,
+                    'employee_id' => $entry['employee']->id,
                 ],
                 [
-                    'added_by'  => $pm->id,
-                    'joined_at' => $joinedAt,
+                    'is_leader'   => $entry['is_leader'],
+                    'date_joined' => $entry['date_joined'],
                 ],
             );
         }
+    }
+
+    private function employee(string $email): Employee
+    {
+        return User::where('email', $email)->firstOrFail()->employee;
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Employee;
 use App\Models\User;
 
 test('profile page is displayed', function () {
@@ -14,6 +15,10 @@ test('profile page is displayed', function () {
 
 test('profile information can be updated', function () {
     $user = User::factory()->create();
+    Employee::factory()->create([
+        'user_id' => $user->id,
+        'name' => 'Old Name',
+    ]);
 
     $response = $this
         ->actingAs($user)
@@ -27,14 +32,19 @@ test('profile information can be updated', function () {
         ->assertRedirect(route('profile.edit'));
 
     $user->refresh();
+    $user->load('employee');
 
-    expect($user->name)->toBe('Test User');
+    expect($user->employee->name)->toBe('Test User');
     expect($user->email)->toBe('test@example.com');
     expect($user->email_verified_at)->toBeNull();
 });
 
 test('email verification status is unchanged when the email address is unchanged', function () {
     $user = User::factory()->create();
+    Employee::factory()->create([
+        'user_id' => $user->id,
+        'name' => 'Old Name',
+    ]);
 
     $response = $this
         ->actingAs($user)

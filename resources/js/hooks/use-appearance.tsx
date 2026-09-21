@@ -73,7 +73,7 @@ export function initializeTheme(): void {
     currentAppearance = getStoredAppearance();
     applyTheme(currentAppearance);
 
-    // Set up system theme change listener
+    // Mengikuti perubahan tema dari sistem.
     mediaQuery()?.addEventListener('change', handleSystemThemeChange);
 }
 
@@ -92,10 +92,10 @@ export function useAppearance(): UseAppearanceReturn {
     const updateAppearance = useCallback((mode: Appearance): void => {
         currentAppearance = mode;
 
-        // Store in localStorage for client-side persistence...
+        // Menyimpan tema untuk browser.
         localStorage.setItem('appearance', mode);
 
-        // Store in cookie for SSR...
+        // Menyimpan tema untuk server render.
         setCookie('appearance', mode);
 
         applyTheme(mode);

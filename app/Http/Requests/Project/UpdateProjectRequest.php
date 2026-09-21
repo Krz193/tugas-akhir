@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Project;
 
+use App\Models\Employee;
 use App\Models\Project;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateProjectRequest extends FormRequest
 {
@@ -20,11 +22,28 @@ class UpdateProjectRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
-            'status' => ['sometimes', 'required', 'string', 'max:50'],
+            'price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'status' => ['sometimes', 'required', 'string', 'in:planning,active,on_hold,completed'],
             'start_date' => ['sometimes', 'nullable', 'date'],
             'due_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:start_date'],
             'member_ids' => ['nullable', 'array'],
-            'member_ids.*' => ['exists:users,id'],
+            'member_ids.*' => [
+                'integer',
+                Rule::exists(Employee::class, 'id'),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! $this->isTeamMemberEmployee((int) $value)) {
+                        $fail('The selected project member must be a Team Member.');
+                    }
+                },
+            ],
         ];
+    }
+
+    private function isTeamMemberEmployee(int $employeeId): bool
+    {
+        return Employee::query()
+            ->whereKey($employeeId)
+            ->whereHas('role', fn ($query) => $query->where('slug', 'team-member'))
+            ->exists();
     }
 }

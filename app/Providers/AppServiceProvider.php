@@ -3,10 +3,8 @@
 namespace App\Providers;
 
 use App\Models\Message;
-use App\Models\Division;
 use App\Models\Project;
 use App\Models\Task;
-use App\Policies\DivisionPolicy;
 use App\Policies\MessagePolicy;
 use App\Policies\ProjectPolicy;
 use App\Policies\TaskPolicy;
@@ -19,20 +17,14 @@ use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
+    /** Mendaftarkan service aplikasi. */
     public function register(): void
     {
-        //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
+    /** Menyiapkan konfigurasi utama aplikasi. */
     public function boot(): void
     {
-        Gate::policy(Division::class, DivisionPolicy::class);
         Gate::policy(Project::class, ProjectPolicy::class);
         Gate::policy(Task::class, TaskPolicy::class);
         Gate::policy(Message::class, MessagePolicy::class);

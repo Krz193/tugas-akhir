@@ -30,6 +30,12 @@ export function useTaskThread() {
                 },
             });
 
+            if (!response.ok) {
+                setTaskMessages([]);
+                setTaskSheetOpen(false);
+                return;
+            }
+
             const data = await response.json();
 
             if (currentTaskIdRef.current === taskId) {

@@ -1,14 +1,7 @@
-// app-sidebar.tsx — Main sidebar shown on all authenticated pages.
+// Sidebar utama untuk halaman setelah login.
 
 import { Link } from '@inertiajs/react';
-import {
-    BarChart3,
-    CalendarDays,
-    CheckSquare,
-    FolderKanban,
-    GanttChartSquare,
-    LayoutGrid,
-} from 'lucide-react';
+import { CheckSquare, FolderKanban, LayoutGrid, Users } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -20,6 +13,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useAuthUser } from '@/hooks/use-auth-user';
 import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
 import AppLogo from './app-logo';
@@ -31,32 +25,52 @@ const dashboardNavItem: NavItem[] = [
         icon: LayoutGrid,
     },
 ];
-// Main nav links — href must match routes/web.php
-const mainNavItems: NavItem[] = [
-    // { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-    { title: 'Projects', href: '/projects', icon: FolderKanban },
-    { title: 'My Tasks', href: '/my-tasks', icon: CheckSquare },
-];
-
-// Report nav links — shown under a separate "Reports" label
-const reportNavItems: NavItem[] = [
-    {
-        title: 'Timeline',
-        href: '/reports/project-timeline',
-        icon: GanttChartSquare,
-    },
-    { title: 'Calendar', href: '/reports/calendar', icon: CalendarDays },
-    { title: 'Performance', href: '/reports/performance', icon: BarChart3 },
-];
 
 export function AppSidebar() {
+    const { isProjectManager, isBusinessDeveloper, isTeamMember } =
+        useAuthUser();
+    const canViewDashboard = isProjectManager() || isBusinessDeveloper();
+    const homeHref = canViewDashboard ? dashboard() : '/my-tasks';
+
+    const roleNavItems: NavItem[] = [];
+
+    if (isProjectManager()) {
+        roleNavItems.push(
+            { title: 'Users', href: '/users', icon: Users },
+            { title: 'Projects', href: '/projects', icon: FolderKanban },
+        );
+    }
+
+    if (isBusinessDeveloper()) {
+        roleNavItems.push({
+            title: 'Projects',
+            href: '/projects',
+            icon: FolderKanban,
+        });
+    }
+
+    if (isTeamMember()) {
+        roleNavItems.push(
+            {
+                title: 'Projects',
+                href: '/projects',
+                icon: FolderKanban,
+            },
+            {
+                title: 'My Tasks',
+                href: '/my-tasks',
+                icon: CheckSquare,
+            },
+        );
+    }
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
+                            <Link href={homeHref} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -65,9 +79,8 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={dashboardNavItem} />
-                <NavMain items={mainNavItems} label="Project Management" />
-                <NavMain items={reportNavItems} label="Reports" />
+                {canViewDashboard && <NavMain items={dashboardNavItem} />}
+                <NavMain items={roleNavItems} label="Menu" />
             </SidebarContent>
 
             <SidebarFooter>

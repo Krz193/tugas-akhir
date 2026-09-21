@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 
 import { useAuthUser } from '@/hooks/use-auth-user';
 
@@ -17,30 +17,38 @@ function formatDate(date: string | null) {
 
 function statusSelectClass(status: TaskStatus) {
     if (status === 'done') {
-        return 'border-green-300 bg-green-50 text-green-800';
+        return 'border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/60 dark:text-green-300';
     }
 
     if (status === 'in_progress') {
-        return 'border-blue-300 bg-blue-50 text-blue-800';
+        return 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300';
     }
 
-    if (status === 'pending_review') {
-        return 'border-amber-300 bg-amber-50 text-amber-800';
-    }
-
-    return 'border-gray-300 bg-gray-50 text-gray-700';
+    return 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-300';
 }
 
 type TaskRowProps = {
     task: Task;
     canDelete: boolean;
+    canEdit?: boolean;
+    canOpenDetail?: boolean;
     onClick: () => void;
+    onEdit?: () => void;
 };
 
-export function TaskRow({ task, canDelete, onClick }: TaskRowProps) {
-    const { user, isProjectManager } = useAuthUser();
+export function TaskRow({
+    task,
+    canDelete,
+    canEdit = false,
+    canOpenDetail = true,
+    onClick,
+    onEdit,
+}: TaskRowProps) {
+    const { user, isTeamMember } = useAuthUser();
 
-    const canUpdateStatus = isProjectManager() || task.assigned_to === user.id;
+    const employeeId = user.employee?.id;
+    const canUpdateStatus =
+        isTeamMember() && task.assigned_employee_id === employeeId;
 
     function handleStatusChange(newStatus: string) {
         router.patch(`/tasks/${task.id}/status`, {
@@ -54,24 +62,25 @@ export function TaskRow({ task, canDelete, onClick }: TaskRowProps) {
         }
     }
 
-    const isLeadOrPm = isProjectManager();
-    const shouldRenderLockedState =
-        ['pending_review', 'done'].includes(task.status) && !isLeadOrPm;
-
-    const isMember = !isLeadOrPm;
-    const showSeekApprovalButton = isMember && task.status === 'in_progress';
-
     return (
         <div
-            onClick={onClick}
-            className="flex cursor-pointer items-center gap-3 border-b px-5 py-3 transition-colors last:border-0 hover:bg-muted/50"
+            onClick={() => {
+                if (canOpenDetail) {
+                    onClick();
+                }
+            }}
+            className={`flex items-center gap-3 border-b px-5 py-3 transition-colors last:border-0 ${
+                canOpenDetail
+                    ? 'cursor-pointer hover:bg-muted/50'
+                    : 'cursor-default'
+            }`}
         >
             <div className="w-28">
-                {shouldRenderLockedState ? (
+                {!canUpdateStatus ? (
                     <div
                         className={`flex h-9 items-center justify-center rounded-md border text-xs font-medium shadow-sm transition-colors ${statusSelectClass(task.status)}`}
                     >
-                        {task.status === 'done' ? 'Done' : 'Pending Review'}
+                        {task.status.replace('_', ' ')}
                     </div>
                 ) : (
                     <select
@@ -83,28 +92,13 @@ export function TaskRow({ task, canDelete, onClick }: TaskRowProps) {
                     >
                         <option value="todo">Todo</option>
                         <option value="in_progress">In Progress</option>
-
-                        <option value="done" disabled={!isLeadOrPm}>
-                            Done
-                        </option>
+                        <option value="done">Done</option>
                     </select>
                 )}
             </div>
 
             <div className="flex flex-1 items-center gap-2">
                 <span className="text-sm font-medium">{task.title}</span>
-
-                {showSeekApprovalButton && (
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusChange('pending_review');
-                        }}
-                        className="rounded-full border border-blue-950 bg-blue-700 px-4 py-1 text-[12px] tracking-wider text-white transition-colors hover:bg-blue-800"
-                    >
-                        Request Review
-                    </button>
-                )}
             </div>
 
             <span className="hidden w-32 truncate text-right text-xs text-muted-foreground sm:block">
@@ -115,17 +109,34 @@ export function TaskRow({ task, canDelete, onClick }: TaskRowProps) {
                 {task.due_date ? formatDate(task.due_date) : '—'}
             </span>
 
-            {canDelete && (
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete();
-                    }}
-                    className="text-muted-foreground hover:text-destructive"
-                    title="Delete task"
-                >
-                    <Trash2 className="h-4 w-4" />
-                </button>
+            {(canEdit || canDelete) && (
+                <div className="flex w-16 justify-end gap-2">
+                    {canEdit && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit?.();
+                            }}
+                            className="text-muted-foreground hover:text-foreground"
+                            title="Edit task"
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </button>
+                    )}
+
+                    {canDelete && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete();
+                            }}
+                            className="text-muted-foreground hover:text-destructive"
+                            title="Delete task"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
             )}
         </div>
     );

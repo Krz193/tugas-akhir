@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Project;
 
+use App\Models\Employee;
 use App\Models\Project;
-use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,12 +23,26 @@ class AddProjectMemberRequest extends FormRequest
         $project = $this->route('project');
 
         return [
-            'user_id' => [
+            'employee_id' => [
                 'required',
                 'integer',
-                Rule::exists(User::class, 'id'),
-                Rule::unique('project_members', 'user_id')->where(fn ($q) => $q->where('project_id', $project->id)),
+                Rule::exists(Employee::class, 'id'),
+                Rule::unique('project_members', 'employee_id')->where(fn ($q) => $q->where('project_id', $project->id)),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! $this->isTeamMemberEmployee((int) $value)) {
+                        $fail('The selected project member must be a Team Member.');
+                    }
+                },
             ],
+            'is_leader' => ['nullable', 'boolean'],
         ];
+    }
+
+    private function isTeamMemberEmployee(int $employeeId): bool
+    {
+        return Employee::query()
+            ->whereKey($employeeId)
+            ->whereHas('role', fn ($query) => $query->where('slug', 'team-member'))
+            ->exists();
     }
 }
